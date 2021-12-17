@@ -44,10 +44,22 @@
     
     <!-- including the camera link -->
     <!-- 0.261799388 -->
-    <include>
+    <!-- <include>
       <uri>model://camera</uri>
-      <pose>0 0 0.2 0 0.2617 0</pose>
+      <pose>0 0 0.3 0 0.2617 0</pose>
       <name>camera</name>
+    </include> -->
+
+    <include>
+      <uri>model://ranging_sensor</uri>
+      <pose>0.21 0 0 0 0 0</pose>
+      <name>ranging_sensor1</name>
+    </include>
+
+    <include>
+      <uri>model://ranging_sensor</uri>
+      <pose>0.15 015 0 0.4363 0 0</pose>
+      <name>ranging_sensor2</name>
     </include>
 
     <!-- includeing the car body -->
@@ -289,6 +301,44 @@
     <joint name='joint_camera' type='fixed'>
       <parent>chassis::link</parent>
       <child>camera::link_camera</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
+    </joint>
+
+    <!-- fixed joint for the ranging sensor -->
+    <joint name='joint_ray1' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>ranging_sensor1::link_ranging_sensor</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
+    </joint>
+
+    <!-- fixed joint for the ranging sensor -->
+    <joint name='joint_ray2' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>ranging_sensor2::link_ranging_sensor</child>
       <pose frame=''>0 0 0 0 -0 0</pose>
       <physics>
         <ode>

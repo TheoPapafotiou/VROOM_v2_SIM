@@ -1,8 +1,8 @@
 <?xml version='1.0'?>
 
 <sdf version='1.6'>
-  <model name='camera'>
-    <link name='link_camera'>
+  <model name='ranging_sensor'>
+    <link name='link_ranging_sensor'>
       <inertial>
         <mass>0.0052875</mass>
         <inertia>
@@ -24,7 +24,7 @@
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <box>
-            <size>0.005 0.03 0.03</size>
+            <size>0.005 0.01 0.01</size>
           </box>
         </geometry>
         <material>
@@ -50,7 +50,7 @@
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <box>
-            <size>0.005 0.03 0.03</size>
+            <size>0.005 0.01 0.01</size>
           </box>
         </geometry>
         <surface>
@@ -99,38 +99,40 @@
           </contact>
         </surface>
       </collision>
-      <sensor type="camera" name="camera">
-        <update_rate>30.0</update_rate>
-        <camera name="head">
-          <horizontal_fov>1.085594795</horizontal_fov>
-          <image>
-            <width>640</width>
-            <height>480</height>
-            <format>R8G8B8</format>
-          </image>
-          <clip>
-            <near>0.02</near>
-            <far>100</far>
-          </clip>
-          <noise>
-            <type>gaussian</type>
-            <mean>0.0</mean>
-            <stddev>0.0</stddev>
-          </noise>
-        </camera>
+      <sensor type="ray" name="ranging_sensor1">
+        <pose>0 0 0 0 0 0</pose>
+        <visualize>true</visualize>
+        <update_rate>50</update_rate>
+        <ray>
+          <scan>
+              <horizontal>
+                <samples>10</samples>
+                <resolution>1</resolution> 
+                <min_angle>-0.22689</min_angle>
+                <max_angle>0.22689</max_angle>
+              </horizontal>
+              <vertical>
+                <samples>10</samples>
+                <resolution>1</resolution> 
+                <min_angle>-0.14835</min_angle>
+                <max_angle>0.14835</max_angle> 
+              </vertical>
+          </scan>
+          <range>
+              <min>0.03</min>
+              <max>3</max>
+              <resolution>0.02</resolution>
+          </range>
+        </ray>
 
-        <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <plugin name="gazebo_ros_range" filename="libgazebo_ros_range.so">
+          <gaussianNoise>0.005</gaussianNoise>
           <alwaysOn>true</alwaysOn>
-          <updateRate>0.0</updateRate>
-          <imageTopicName>image_raw</imageTopicName>
-          <cameraInfoTopicName>camera_info</cameraInfoTopicName>
-          <frameName>link_camera</frameName>
-          <hackBaseline>0.0</hackBaseline>
-          <distortionK1>0.0</distortionK1>
-          <distortionK2>0.0</distortionK2>
-          <distortionK3>0.0</distortionK3>
-          <distortionT1>0.0</distortionT1>
-          <distortionT2>0.0</distortionT2>
+          <updateRate>50</updateRate>
+          <topicName>sensor/ir_front</topicName>
+          <frameName>base_ir_front</frameName>
+          <radiation>INFRARED</radiation>
+          <fov>0.4363</fov>
 	        <robotNamespace></robotNamespace>
         </plugin>
 
