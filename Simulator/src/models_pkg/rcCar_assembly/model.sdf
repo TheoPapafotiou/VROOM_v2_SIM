@@ -46,9 +46,15 @@
     <!-- 0.261799388 -->
     <!-- <include>
       <uri>model://camera</uri>
-      <pose>0 0 0.3 0 0.2617 0</pose>
+      <pose>0 0 0.2 0 0.2617 0</pose>
       <name>camera</name>
     </include> -->
+
+    <include>
+      <uri>model://depth_camera</uri>
+      <pose>0.03 0 0.12 0 0.1745 0</pose>
+      <name>depth_camera</name>
+    </include>
 
     <include>
       <uri>model://ranging_sensor</uri>
@@ -58,11 +64,35 @@
 
     <include>
       <uri>model://ranging_sensor</uri>
-      <pose>0.15 015 0 0.4363 0 0</pose>
+      <pose>0.195 0.06 0 0 0 0.4363</pose>
       <name>ranging_sensor2</name>
     </include>
 
-    <!-- includeing the car body -->
+    <include>
+      <uri>model://ranging_sensor</uri>
+      <pose>0.195 -0.06 0 0 0 -0.4363</pose>
+      <name>ranging_sensor3</name>
+    </include>
+
+    <include>
+      <uri>model://ranging_sensor</uri>
+      <pose>0 -0.085 0 0 0 -1.5708</pose>
+      <name>ranging_sensor4</name>
+    </include>
+
+    <include>
+      <uri>model://ranging_sensor</uri>
+      <pose>0 0.085 0 0 0 1.5708</pose>
+      <name>ranging_sensor5</name>
+    </include>
+
+    <include>
+      <uri>model://ranging_sensor</uri>
+      <pose>-0.25 0 0 0 0 3.1416</pose>
+      <name>ranging_sensor6</name>
+    </include>
+
+    <!-- including the car body -->
     <include>
       <uri>model://car_body</uri>
       <pose>-0.024 0.0 -0.028 0 0.0 0</pose>
@@ -296,9 +326,8 @@
       </physics>
     </joint>
 
-
     <!-- fixed joint for the camera -->
-    <joint name='joint_camera' type='fixed'>
+    <!-- <joint name='joint_camera' type='fixed'>
       <parent>chassis::link</parent>
       <child>camera::link_camera</child>
       <pose frame=''>0 0 0 0 -0 0</pose>
@@ -314,9 +343,28 @@
           </suspension>
         </ode>
       </physics>
+    </joint> -->
+
+    <!-- fixed joint for the depth camera -->
+    <joint name='joint_depth_camera' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>depth_camera::link_depth_camera</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
     </joint>
 
-    <!-- fixed joint for the ranging sensor -->
+    <!-- fixed joint for the 1st ranging sensor -->
     <joint name='joint_ray1' type='fixed'>
       <parent>chassis::link</parent>
       <child>ranging_sensor1::link_ranging_sensor</child>
@@ -335,10 +383,86 @@
       </physics>
     </joint>
 
-    <!-- fixed joint for the ranging sensor -->
+    <!-- fixed joint for the 2nd ranging sensor -->
     <joint name='joint_ray2' type='fixed'>
       <parent>chassis::link</parent>
       <child>ranging_sensor2::link_ranging_sensor</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
+    </joint>
+
+    <!-- fixed joint for the 3rd ranging sensor -->
+    <joint name='joint_ray3' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>ranging_sensor3::link_ranging_sensor</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
+    </joint>
+
+    <!-- fixed joint for the 3rd ranging sensor -->
+    <joint name='joint_ray4' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>ranging_sensor4::link_ranging_sensor</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
+    </joint>
+
+    <!-- fixed joint for the 3rd ranging sensor -->
+    <joint name='joint_ray5' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>ranging_sensor5::link_ranging_sensor</child>
+      <pose frame=''>0 0 0 0 -0 0</pose>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </limit>
+          <suspension>
+            <cfm>0</cfm>
+            <erp>0.2</erp>
+          </suspension>
+        </ode>
+      </physics>
+    </joint>
+
+    <!-- fixed joint for the 3rd ranging sensor -->
+    <joint name='joint_ray6' type='fixed'>
+      <parent>chassis::link</parent>
+      <child>ranging_sensor6::link_ranging_sensor</child>
       <pose frame=''>0 0 0 0 -0 0</pose>
       <physics>
         <ode>

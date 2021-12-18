@@ -99,7 +99,7 @@
           </contact>
         </surface>
       </collision>
-      <sensor type="camera" name="camera">
+      <sensor type="camera" name="camera1">
         <update_rate>30.0</update_rate>
         <camera name="head">
           <horizontal_fov>1.085594795</horizontal_fov>
@@ -131,9 +131,8 @@
           <distortionK3>0.0</distortionK3>
           <distortionT1>0.0</distortionT1>
           <distortionT2>0.0</distortionT2>
-	        <robotNamespace></robotNamespace>
+          <robotNamespace></robotNamespace>
         </plugin>
-
       </sensor>
     </link>
   </model>
