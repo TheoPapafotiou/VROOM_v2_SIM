@@ -99,9 +99,9 @@
           </contact>
         </surface>
       </collision>
-      <sensor type="camera" name="camera1">
+      <sensor type="camera" name="camera_lanes">
         <update_rate>30.0</update_rate>
-        <camera name="head">
+        <camera name="head_lanes">
           <horizontal_fov>1.085594795</horizontal_fov>
           <image>
             <width>640</width>
@@ -122,9 +122,9 @@
         <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
           <alwaysOn>true</alwaysOn>
           <updateRate>0.0</updateRate>
-          <imageTopicName>image_raw</imageTopicName>
-          <cameraInfoTopicName>camera_info</cameraInfoTopicName>
-          <frameName>link_camera</frameName>
+          <imageTopicName>camera/lane_image_raw</imageTopicName>
+          <cameraInfoTopicName>camera/lane_camera_info</cameraInfoTopicName>
+          <frameName>link_lane_camera</frameName>
           <hackBaseline>0.0</hackBaseline>
           <distortionK1>0.0</distortionK1>
           <distortionK2>0.0</distortionK2>

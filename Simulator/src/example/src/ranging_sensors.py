@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 import rospy
-import cv2
-import numpy as np
 from sensor_msgs.msg import Range
-from cv_bridge import CvBridge, CvBridgeError
 
-class RangeHandler():
+class RangeHandler:
     # ===================================== INIT==========================================
     def __init__(self):
         """
@@ -22,7 +19,6 @@ class RangeHandler():
         :return: nothing but sets [cv_image] to the useful image that can be use in opencv (numpy array)
         """
         print("Distance: ", round(data.range, 4))
-        key = cv2.waitKey(1)
     
             
 if __name__ == '__main__':
