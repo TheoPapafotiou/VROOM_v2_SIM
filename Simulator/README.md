@@ -102,22 +102,6 @@ rosrun example control.py
 If the setup for interacting with the car is done, the phisical car will also interact with the two scripts, as well as the virtual one. 
 We suggest, if you plan to develop on the PC, to create another workspace for the project itself. 
 
-
-## 6. Camera Setup
-
-### 6.1 Change Resolution
-
-Inside `src/models_pkg/camera/model.sdf`, you will find the `<width>` and `<height>` tags. Modifying them will allow you to change the camera resolution. You don't need to recompile the workspace after this change.
-
-### 6.2. Change Position
-
-Inside `src/models_pkg/rcCar_assembly/model.sdf`, you will find the inclusion of `<uri>model://camera</uri>`. Inside that same `<include>` tag, there is also a `<pose>` tag, which you will need to modify [according to the SDF format specification](http://sdformat.org/spec?ver=1.6&elem=model#include_pose) in order to change the camera's position. You don't need to recompile the workspace after this change.
-
-```
-<!-- All constants of double data type, with angles in radians and "." (dot) as decimal separator -->
-<pose> X Y Z ROLL PITCH YAW </pose> 
-```
-
 ## 7. Other tips
 
 - If you want to start the testing from scratch, instead of restarting gazebo, you can only restart the simulation with the help of the ROS services:
@@ -137,3 +121,154 @@ Bigger the resolution, bigger the requirements of the simulation.
 You can also configure your own launching files, you can create a launch file that includes multiple launch files. See the `map_with_all_objects.launch` file inside the `src/sim_pkg/launch` as an example.
 
 In order to use the launch files, you need to source the devel/setup.bash
+
+# Hardware Setup
+
+In order to test properly the modifications made on the car, it is needed to check the performance of the sensors under different **positions** and **fields of view**.
+- Angles in ***rads***
+- Distances in ***m***
+- For constants of double data type, "." (dot) is used as decimal seperator
+- After each change in `<something>.sdf` files, you need to kill and reload the simulation.
+- The X, Y, Z are calculated **relatively to the center of car**, since all sensors are connected in the `rcCar_assembly`.
+- [The SDF format specification](http://sdformat.org/spec?ver=1.6&elem=model#include_pose) FYI
+
+## Depth Camera
+
+### Change Resolution/FOV
+
+Inside `src/models_pkg/depth_camera/model.sdf`, you will find the following tags:
+- `<width>`
+- `<height>`
+- `<horizontal_fov>`
+- `<near>`, `<far>` (MIN/MAX range)
+
+Modifying them will allow you to change the camera resolution and/or FOV.
+
+### Change Position
+
+Inside `src/models_pkg/rcCar_assembly/model.sdf`, you will find the inclusion of `<uri>model://depth_camera</uri>`. Inside that same `<include>` tag, there is also a `<pose>` tag, which needs to be modified in order to change the camera's position.  
+
+```
+<pose> X Y Z ROLL PITCH YAW </pose> 
+```
+
+### Sensor Topics 
+- `/automobile/color_image_raw`
+- `/automobile/depth_image_raw`
+- `/automobile/color_camera_info`
+- `/automobile/depth_camera_info`
+
+## Ranging Sensors (IR)
+
+For each IR sensor around the car, a different model has been created. The following instructions are the same for each one of the models. 
+
+### Change FOV/Noise
+
+Inside `src/models_pkg/ray_<orientation>/model.sdf`, you will find the following tags:
+- `<horizontal>`
+    - `<min_angle>`
+    - `<max_angle>` 
+- `<vertical>`
+    - `<min_angle>`
+    - `<max_angle>`
+- `<range>`
+    - `<min>`
+    - `<max>`
+- `<plugin>`
+    - `<gaussianNoise>` (min == 0)
+    - `<fov>` (= 2 * horizontal_max_angle)
+
+Modifying them will allow you to change the sensor FOV and/or the Noise. 
+
+*You may notice that the `min_angle` should be the negative of the `max_angle`.*
+
+### Change Position
+
+Inside `src/models_pkg/rcCar_assembly/model.sdf`, you will find the inclusion of `<uri>model://ray_<orientation></uri>`. Inside that same `<include>` tag, there is also a `<pose>` tag, which needs to be modified in order to change the camera's position.  
+
+```
+<pose> X Y Z ROLL PITCH YAW </pose> 
+```
+
+### Sensor Topics 
+- `ir_<orientation>`
+
+## Lane Camera
+
+### Change Resolution/FOV/Noise
+
+Inside `src/models_pkg/camera/model.sdf`, you will find the following tags:
+- `<width>`
+- `<height>`
+- `<horizontal_fov>`
+- `<near>`, `<far>` (MIN/MAX range)
+- `<noise>`
+    - `<stddev>`
+
+Modifying them will allow you to change the camera **resolution** and/or **FOV** and/or **Noise**.
+
+### Change Position
+
+Inside `src/models_pkg/rcCar_assembly/model.sdf`, you will find the inclusion of `<uri>model://camera</uri>`. Inside that same `<include>` tag, there is also a `<pose>` tag, which needs to be modified in order to change the camera's position.  
+
+```
+<pose> X Y Z ROLL PITCH YAW </pose> 
+```
+
+### Sensor Topics 
+- `/automobile/lane_image_raw`
+- `/automobile/lane_camera_info`
+
+# Subscribe to any sensor topics
+
+In order to use the sensor metrics (Images and ranges) in the algorithms, you need to subscribe in the corresponding topics of each sensor:
+
+## In case of a Camera Sensor topic (Image)
+```sh
+
+import rospy
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+
+class SensorHandler:
+
+    def __init__(self):
+        self.bridge = CvBridge()
+        self.cv_image = np.zeros((<width>, <height>))
+        rospy.init_node('SensorNOD', anonymous=True)
+        self.sensor_sub = rospy.Subscriber("<Sensor Topic>", Image, self.callback)
+
+    def callback(self, data):
+        self.cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
+        cv2.imshow("Frame preview", self.cv_image)
+
+if __name__ == '__main__':
+    try:
+        nod = SensorHandler()
+    except rospy.ROSInterruptException:
+        pass
+```
+
+## In case of a Ranging Sensor topic (Range)
+```sh
+
+import rospy
+from sensor_msgs.msg import Range
+
+class SensorHandler:
+
+    def __init__(self):
+        self.range = 0.0
+        rospy.init_node('SensorNOD', anonymous=True)
+        self.sensor_sub = rospy.Subscriber("<Sensor Topic>", Range, self.callback)
+
+    def callback(self, data):
+        self.range = round(data.range, 4)
+        print("Distance: ", self.range)
+
+if __name__ == '__main__':
+    try:
+        nod = SensorHandler()
+    except rospy.ROSInterruptException:
+        pass
+```
