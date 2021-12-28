@@ -30,6 +30,7 @@
 
 import json
 from pynput import keyboard
+import sys
 
 from RcBrainThread import RcBrainThread
 from std_msgs.msg import String
@@ -90,7 +91,7 @@ class RemoteControlTransmitterProcess():
         """ 
         if key == keyboard.Key.esc:                        #exit key      
             self.publisher.publish('{"action":"3","steerAngle":0.0}')   
-            return False
+            sys.exit()
         try:                                               
             if key.char in self.allKeys:
                 keyMsg = 'r.'+str(key.char)
@@ -109,10 +110,12 @@ class RemoteControlTransmitterProcess():
             Input pipe. 
         """
         command = self.rcBrain.getMessage(key)
+
         if command is not None:
 	
             command = json.dumps(command)
             self.publisher.publish(command)  
+            print(command)
             
 if __name__ == '__main__':
     try:
