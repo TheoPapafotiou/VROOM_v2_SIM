@@ -122,8 +122,8 @@
         <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
           <alwaysOn>true</alwaysOn>
           <updateRate>0.0</updateRate>
-          <imageTopicName>camera/lane_image_raw</imageTopicName>
-          <cameraInfoTopicName>camera/lane_camera_info</cameraInfoTopicName>
+          <imageTopicName>lane_image_raw</imageTopicName>
+          <cameraInfoTopicName>lane_camera_info</cameraInfoTopicName>
           <frameName>link_lane_camera</frameName>
           <hackBaseline>0.0</hackBaseline>
           <distortionK1>0.0</distortionK1>

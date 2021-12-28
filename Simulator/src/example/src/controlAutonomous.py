@@ -24,7 +24,9 @@ class AutonomousControlProcess():
         self.publisher = rospy.Publisher('/automobile/command', String, queue_size=1)
 
         # cv_image param
-        self.camera = CameraHandler()
+        self.depth_cam = CameraHandler("depth")
+        self.color_cam = CameraHandler("color")
+        self.lane_cam = CameraHandler("lane")
 
         # range param
         self.rayFront = RangeHandler("front")
@@ -61,7 +63,7 @@ class AutonomousControlProcess():
             while self.reset is False:
                 counter += 1
 
-                cv2.imshow("Preview", self.camera.cv_image) 
+                cv2.imshow("Preview", self.depth_cam.cv_image) 
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True

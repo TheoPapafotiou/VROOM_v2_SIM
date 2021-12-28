@@ -96,13 +96,43 @@ rosrun example camera.py
 ```
 and on another one you can execute
 ```sh
-rosrun example control.py
+rosrun example controlRemote.py
 ```
 
-If the setup for interacting with the car is done, the phisical car will also interact with the two scripts, as well as the virtual one. 
+If the setup for interacting with the car is done, the physical car will also interact with the two scripts, as well as the virtual one. 
 We suggest, if you plan to develop on the PC, to create another workspace for the project itself. 
 
-## 7. Other tips
+## 7. Interaction only with the PC
+
+Exactly as the examples above, you can open one terminal (after opening the simulation) and run inside:
+```sh
+source devel/setup.bash
+rosrun example controlAutonomous.py
+```
+
+This script has been created to help you test initially the function you have created without the need of the actual car. 
+
+You only need to:
+- Call the function from your class inside the `_test_function()`
+- Update the `self.speed` and `self.angle`
+
+And the you can see the car moving on the track! 
+
+### Use sensor metrics
+
+All sensor metrics are initiated inside the `__init__()`. You only need to use the corresponding parameter:
+- Ranging Sensors ---> `self.<ray_name>.range`
+- Cameras --> `self.<cam_name>.cv_image` 
+
+### Stop the Car & The process
+
+In order to stop the car and the process you need to do:
+- Press `q` on the Frame Preview
+- `CTRL+C` to stop the process
+
+For now, you must use __both commands__ to stop the simulation properly!! 
+
+## 8. Other tips
 
 - If you want to start the testing from scratch, instead of restarting gazebo, you can only restart the simulation with the help of the ROS services:
 ```sh

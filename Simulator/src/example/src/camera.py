@@ -9,14 +9,14 @@ from cv_bridge import CvBridge, CvBridgeError
 
 class CameraHandler:
     # ===================================== INIT==========================================
-    def __init__(self):
+    def __init__(self, type):
         """
         Creates a bridge for converting the image from Gazebo image into OpenCV image
         """
         self.bridge = CvBridge()
         self.cv_image = np.zeros((640, 480))
         # rospy.init_node('CAMnod', anonymous=True)
-        self.image_sub = rospy.Subscriber("/automobile/color_image_raw", Image, self.callback)
+        self.image_sub = rospy.Subscriber("/automobile/" + type + "_image_raw", Image, self.callback)
         # rospy.spin()
 
     def callback(self, data):
