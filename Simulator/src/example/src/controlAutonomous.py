@@ -8,6 +8,8 @@ from ranging_sensors    import RangeHandler
 from std_msgs.msg       import String
 from threading          import Thread
 from camera             import CameraHandler
+from gps                import GPSHandler
+from imu                import IMUHandler
 
 import rospy
 
@@ -35,6 +37,12 @@ class AutonomousControlProcess():
         self.rayLeft = RangeHandler("left")
         self.rayFrontLeft = RangeHandler("front_left")
         self.rayFrontRight = RangeHandler("front_right")
+
+        # pos param
+        self.GPS = GPSHandler()
+
+        # [roll, pitch, yaw] params
+        self.IMU = IMUHandler()
 
     # ===================================== RUN ==========================================
     def run(self):
@@ -64,6 +72,8 @@ class AutonomousControlProcess():
                 counter += 1
 
                 cv2.imshow("Preview", self.depth_cam.cv_image) 
+                print(self.GPS.pos)
+                print(self.IMU.yaw)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True

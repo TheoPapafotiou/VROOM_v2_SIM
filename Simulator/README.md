@@ -99,6 +99,21 @@ and on another one you can execute
 rosrun example controlRemote.py
 ```
 
+### 5.3 Check ROSTOPICS
+
+- If you want to check all the published topics, you need to run:
+```sh
+rostopic list
+```
+- If you want to check what each topic publishes, you need to run:
+```sh
+rostopic echo <topic>
+```
+- If you want to find the `msg type` of each topic, you need to run:
+```sh
+rostopic type <topic> | rosmsg show
+```
+
 If the setup for interacting with the car is done, the physical car will also interact with the two scripts, as well as the virtual one. 
 We suggest, if you plan to develop on the PC, to create another workspace for the project itself. 
 
