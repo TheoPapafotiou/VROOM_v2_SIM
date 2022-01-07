@@ -42,11 +42,11 @@
       <name>wheel_front_right</name>
     </include>
 
-    <include>
+    <!-- <include>
       <uri>model://camera</uri>
       <pose>0.2 0 0.1 0 0.5236 0</pose>
       <name>camera</name>
-    </include>
+    </include> -->
 
     <include>
       <uri>model://depth_camera</uri>
@@ -325,7 +325,7 @@
     </joint>
 
     <!-- fixed joint for the depth camera -->
-    <joint name='joint_lane_camera' type='fixed'>
+    <!-- <joint name='joint_lane_camera' type='fixed'>
       <parent>chassis::link</parent>
       <child>camera::link_camera</child>
       <pose frame=''>0 0 0 0 -0 0</pose>
@@ -341,7 +341,7 @@
           </suspension>
         </ode>
       </physics>
-    </joint>
+    </joint> -->
 
     <!-- fixed joint for the depth camera -->
     <joint name='joint_depth_camera' type='fixed'>

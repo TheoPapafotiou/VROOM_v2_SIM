@@ -10,6 +10,8 @@ from threading          import Thread
 from camera             import CameraHandler
 from gps                import GPSHandler
 from imu                import IMUHandler
+from Center_Of_Roundbout    import CenterOfRoundabout
+from LaneKeepingReloaded    import LaneKeepingReloaded
 
 import rospy
 
@@ -44,6 +46,9 @@ class AutonomousControlProcess():
         # [roll, pitch, yaw] params
         self.IMU = IMUHandler()
 
+        self.Round = CenterOfRoundabout(640, 480)
+        self.Lane = LaneKeepingReloaded(640, 480)
+
     # ===================================== RUN ==========================================
     def run(self):
         """Apply initializing methods and start the threads. 
@@ -63,27 +68,34 @@ class AutonomousControlProcess():
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
 
-        self.speed = 20
+        self.speed = 10
 
         counter = 0
 
         try:
+            imageLane = self.color_cam.cv_image
+            imageRound = self.color_cam.cv_image
+            starting_yaw = 0.0
             while self.reset is False:
                 counter += 1
 
-                cv2.imshow("Preview", self.depth_cam.cv_image) 
-                print(self.GPS.pos)
-                print(self.IMU.yaw)
-                
+                cv2.imshow("Preview", imageRound) 
+                #print(self.GPS.pos)
+                #print(self.IMU.yaw)
+
+                if counter == 1:
+                    starting_yaw = self.IMU.yaw
+
+                imageRound = self.Round.centerOfRoundabout(self.color_cam.cv_image, self.IMU.yaw, starting_yaw)
+                if imageRound is not False:
+                    self.angle, imageLane = self.Lane.lane_keeping_pipeline(imageRound)            
+                else:
+                    self.angle, imageRound = self.Lane.lane_keeping_pipeline(self.color_cam.cv_image)
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
 
-                if counter%10 < 4:
-                    self.angle = 20
-                else:
-                    self.angle = -20
-
-                time.sleep(0.1)
+                time.sleep(0.01)
 
             self.speed = 0.0
         
