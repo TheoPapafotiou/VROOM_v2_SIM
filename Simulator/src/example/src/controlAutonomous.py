@@ -3,6 +3,7 @@
 import json
 import cv2
 import time
+import numpy as np
 
 from ranging_sensors    import RangeHandler
 from std_msgs.msg       import String
@@ -10,6 +11,9 @@ from threading          import Thread
 from camera             import CameraHandler
 from gps                import GPSHandler
 from imu                import IMUHandler
+from pathlib import Path
+
+from detectHorizontal   import DetectHorizontal
 
 import rospy
 
@@ -44,6 +48,12 @@ class AutonomousControlProcess():
         # [roll, pitch, yaw] params
         self.IMU = IMUHandler()
 
+        # --- WRITE BELOW ---
+        print(Path("src/example/src/default_mask_real.json").absolute())
+        self.det = DetectHorizontal(mask_filename="src/example/src/default_mask_real.json")
+
+        # --- WRITE ABOVE ---
+
     # ===================================== RUN ==========================================
     def run(self):
         """Apply initializing methods and start the threads. 
@@ -64,6 +74,7 @@ class AutonomousControlProcess():
     def _test_function(self):
 
         self.speed = 20
+        self.angle = 0
 
         counter = 0
 
@@ -71,24 +82,67 @@ class AutonomousControlProcess():
             while self.reset is False:
                 counter += 1
 
-                cv2.imshow("Preview", self.depth_cam.cv_image) 
-                print(self.GPS.pos)
-                print(self.IMU.yaw)
+                # --- WRITE BELOW ---
+                # print(self.color_cam.cv_image.shape)
+                dim = (1640, 1232)
+                resized = cv2.resize(self.color_cam.cv_image, dim, interpolation = cv2.INTER_AREA)
+                # print(resized.shape)
+                dict_hor, masked, len_lines, lines = self.det.detection(resized)
+                lane_img = self.display_lines_on_img(resized, lines)
+                print(dict_hor)
+                print(len_lines)
+                # --- WRITE ABOVE ---
+
+                cv2.imshow("Preview", lane_img) 
+                cv2.imwrite("Frame_"+str(counter)+".jpg", self.color_cam.cv_image)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
 
-                if counter%10 < 4:
-                    self.angle = 20
-                else:
-                    self.angle = -20
-
-                time.sleep(0.1)
+                time.sleep(0.01)
 
             self.speed = 0.0
         
         except Exception as e:
             print(e)
+
+    def display_lines_on_img(self, img, lines, thickness=10, wait=True):
+        line_image = np.zeros_like(img)
+        # if lines[0].size == 0:
+        #     cv2.imshow("lines", img)
+        #     if wait:
+        #         cv2.waitKey()
+        # else:
+        for line in lines:
+            # print(line)
+            pass
+        try:
+            if len(lines) != 1:
+                for line in lines:
+                    # x1, y1, x2, y2 = line.reshape(4)
+                    x1, y1, x2, y2 = line[0]
+                    cv2.line(line_image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), thickness=thickness)
+                    combined_image = cv2.addWeighted(img, 0.8, line_image, 1, 1)
+                    cv2.imshow("lines", combined_image)
+                    # if wait:
+                    #     cv2.waitKey()
+                    if wait:
+                        cv2.waitKey()
+            else:
+                x1, y1, x2, y2 = lines[0]
+                cv2.line(line_image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), thickness=thickness)
+                combined_image = cv2.addWeighted(img, 0.8, line_image, 1, 1)
+                cv2.imshow("lines", combined_image)
+                if wait:
+                    cv2.waitKey()
+
+            return combined_image
+            # if line.size == 0:
+            #     raise
+        except:
+            cv2.imshow("lines", img)
+            if wait:
+                cv2.waitKey()
                  
     # ===================================== SEND COMMAND =================================
     def _command_speed(self):
@@ -109,7 +163,7 @@ class AutonomousControlProcess():
             if data is not None:
         
                 command = json.dumps(data)
-                print(command)
+                # print(command)
                 self.publisher.publish(command)  
 
 
@@ -131,7 +185,7 @@ class AutonomousControlProcess():
             if data is not None:
         
                 command = json.dumps(data)
-                print(command)
+                # print(command)
                 self.publisher.publish(command)  
             
 if __name__ == '__main__':

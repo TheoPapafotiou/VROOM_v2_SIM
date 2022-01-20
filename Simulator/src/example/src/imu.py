@@ -27,7 +27,6 @@ class IMUHandler:
         self.yaw = rad2deg * round(data.yaw, 4)
         self.roll = rad2deg * round(data.roll, 4)
         self.pitch = rad2deg * round(data.pitch, 4)
-        print(self.yaw)
             
 if __name__ == '__main__':
     try:
