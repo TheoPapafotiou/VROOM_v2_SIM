@@ -50,7 +50,7 @@ class AutonomousControlProcess():
 
         # --- WRITE BELOW ---
         print(Path("src/example/src/default_mask_real.json").absolute())
-        self.det = DetectHorizontal(mask_filename="src/example/src/default_mask_real.json")
+        self.det = DetectHorizontal(mask_filename="src/example/src/default_mask_simulation2.json")
 
         # --- WRITE ABOVE ---
 
@@ -73,7 +73,7 @@ class AutonomousControlProcess():
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
 
-        self.speed = 20
+        self.speed = 10
         self.angle = 0
 
         counter = 0
@@ -83,18 +83,12 @@ class AutonomousControlProcess():
                 counter += 1
 
                 # --- WRITE BELOW ---
-                # print(self.color_cam.cv_image.shape)
-                dim = (1640, 1232)
-                resized = cv2.resize(self.color_cam.cv_image, dim, interpolation = cv2.INTER_AREA)
-                # print(resized.shape)
-                dict_hor, masked, len_lines, lines = self.det.detection(resized)
-                lane_img = self.display_lines_on_img(resized, lines)
-                print(dict_hor)
-                print(len_lines)
+                dict_hor = self.det.detection(self.color_cam.cv_image)
+                print(dict_hor["avg_y"])
                 # --- WRITE ABOVE ---
 
-                cv2.imshow("Preview", lane_img) 
-                cv2.imwrite("Frame_"+str(counter)+".jpg", self.color_cam.cv_image)
+                cv2.imshow("Preview", self.color_cam.cv_image) 
+                # cv2.imwrite("Frame_"+str(counter)+".jpg", self.color_cam.cv_image)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
