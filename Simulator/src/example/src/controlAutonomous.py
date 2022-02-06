@@ -32,13 +32,10 @@ class AutonomousControlProcess():
         # cv_image param
         self.depth_cam = CameraHandler("depth")
         self.color_cam = CameraHandler("color")
-        self.lane_cam = CameraHandler("lane")
 
         # range param
         self.rayFront = RangeHandler("front")
-        self.rayBack = RangeHandler("back")
         self.rayRight = RangeHandler("right")
-        self.rayLeft = RangeHandler("left")
         self.rayFrontLeft = RangeHandler("front_left")
         self.rayFrontRight = RangeHandler("front_right")
 
@@ -99,44 +96,6 @@ class AutonomousControlProcess():
         
         except Exception as e:
             print(e)
-
-    def display_lines_on_img(self, img, lines, thickness=10, wait=True):
-        line_image = np.zeros_like(img)
-        # if lines[0].size == 0:
-        #     cv2.imshow("lines", img)
-        #     if wait:
-        #         cv2.waitKey()
-        # else:
-        for line in lines:
-            # print(line)
-            pass
-        try:
-            if len(lines) != 1:
-                for line in lines:
-                    # x1, y1, x2, y2 = line.reshape(4)
-                    x1, y1, x2, y2 = line[0]
-                    cv2.line(line_image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), thickness=thickness)
-                    combined_image = cv2.addWeighted(img, 0.8, line_image, 1, 1)
-                    cv2.imshow("lines", combined_image)
-                    # if wait:
-                    #     cv2.waitKey()
-                    if wait:
-                        cv2.waitKey()
-            else:
-                x1, y1, x2, y2 = lines[0]
-                cv2.line(line_image, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), thickness=thickness)
-                combined_image = cv2.addWeighted(img, 0.8, line_image, 1, 1)
-                cv2.imshow("lines", combined_image)
-                if wait:
-                    cv2.waitKey()
-
-            return combined_image
-            # if line.size == 0:
-            #     raise
-        except:
-            cv2.imshow("lines", img)
-            if wait:
-                cv2.waitKey()
                  
     # ===================================== SEND COMMAND =================================
     def _command_speed(self):
