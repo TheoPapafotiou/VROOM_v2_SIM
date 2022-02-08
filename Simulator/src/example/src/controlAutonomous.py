@@ -10,7 +10,7 @@ from threading          import Thread
 from camera             import CameraHandler
 from gps                import GPSHandler
 from imu                import IMUHandler
-
+from LaneKeeping        import LaneKeeping
 import rospy
 
 class AutonomousControlProcess():
@@ -43,7 +43,7 @@ class AutonomousControlProcess():
 
         # [roll, pitch, yaw] params
         self.IMU = IMUHandler()
-
+        self.Lkeep = LaneKeeping() 
     # ===================================== RUN ==========================================
     def run(self):
         """Apply initializing methods and start the threads. 
@@ -65,24 +65,16 @@ class AutonomousControlProcess():
 
         self.speed = 20
 
-        counter = 0
-
         try:
             while self.reset is False:
-                counter += 1
+                print('NEW FRAME:')
+                cv2.imshow("Preview", self.lane_cam.cv_image) 
+                self.angle=self.Lkeep.lanes_pipeline(self.lane_cam.cv_image)
+                print('SUCCESSFUl')
 
-                cv2.imshow("Preview", self.depth_cam.cv_image) 
-                print(self.GPS.pos)
-                print(self.IMU.yaw)
-                
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
-
-                if counter%10 < 4:
-                    self.angle = 20
-                else:
-                    self.angle = -20
-
+                
                 time.sleep(0.1)
 
             self.speed = 0.0
@@ -109,7 +101,7 @@ class AutonomousControlProcess():
             if data is not None:
         
                 command = json.dumps(data)
-                print(command)
+                # print(command)
                 self.publisher.publish(command)  
 
 
@@ -131,7 +123,7 @@ class AutonomousControlProcess():
             if data is not None:
         
                 command = json.dumps(data)
-                print(command)
+                # print(command)
                 self.publisher.publish(command)  
             
 if __name__ == '__main__':
