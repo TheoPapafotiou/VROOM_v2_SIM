@@ -3,6 +3,7 @@
 import json
 import cv2
 import time
+import numpy as np
 
 from ranging_sensors    import RangeHandler
 from std_msgs.msg       import String
@@ -28,13 +29,10 @@ class AutonomousControlProcess():
         # cv_image param
         self.depth_cam = CameraHandler("depth")
         self.color_cam = CameraHandler("color")
-        self.lane_cam = CameraHandler("lane")
 
         # range param
         self.rayFront = RangeHandler("front")
-        self.rayBack = RangeHandler("back")
         self.rayRight = RangeHandler("right")
-        self.rayLeft = RangeHandler("left")
         self.rayFrontLeft = RangeHandler("front_left")
         self.rayFrontRight = RangeHandler("front_right")
 
@@ -63,13 +61,14 @@ class AutonomousControlProcess():
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
 
-        self.speed = 20
-
+        self.speed = 10
+        self.angle = 0
+        time.sleep(2)
         try:
             while self.reset is False:
                 print('NEW FRAME:')
-                cv2.imshow("Preview", self.lane_cam.cv_image) 
-                self.angle=self.Lkeep.lanes_pipeline(self.lane_cam.cv_image)
+                cv2.imshow("Preview", self.color_cam.cv_image) 
+                self.angle=self.Lkeep.lanes_pipeline(self.color_cam.cv_image)
                 print('SUCCESSFUl')
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
