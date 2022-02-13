@@ -42,6 +42,7 @@ class AutonomousControlProcess():
         # [roll, pitch, yaw] params
         self.IMU = IMUHandler()
         self.Lkeep = LaneKeeping() 
+        
     # ===================================== RUN ==========================================
     def run(self):
         """Apply initializing methods and start the threads. 
@@ -61,16 +62,16 @@ class AutonomousControlProcess():
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
 
-        self.speed = 10
-        self.angle = 0
         time.sleep(2)
+        self.speed = 15
+        self.angle = 0
+        
         try:
             while self.reset is False:
                 print('NEW FRAME:')
-                cv2.imshow("Preview", self.color_cam.cv_image) 
+                # cv2.imshow("Preview", self.color_cam.cv_image) 
                 self.angle=self.Lkeep.lanes_pipeline(self.color_cam.cv_image)
-                print('SUCCESSFUl')
-
+                
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
                 
