@@ -1,5 +1,5 @@
 import math
-
+import datetime 
 import cv2
 import numpy as np
 
@@ -18,7 +18,7 @@ class LaneKeeping:
         self.last_angle = 0.0
         self.angle_buffer = []
         self.moving_size = 4
-        self.framecount = 1
+        # self.framecount = 1
 
     def canny(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -26,11 +26,10 @@ class LaneKeeping:
         canny = cv2.Canny(blur, 150, 350)
         return canny
 
-    def masked_region(self, image):
+    def masked_region(self, image):  
         polygons = np.array([
             [(self.width / 6, self.height * 3 / 5), (0, self.height * 4 / 5), (self.width, self.height * 4 / 5),
              (self.width * 5 / 6, self.height * 3 / 5)]
-            # (y,x)
         ])
         mask = np.zeros_like(image)
         cv2.fillPoly(mask, np.int32([polygons]), 255)
@@ -61,25 +60,24 @@ class LaneKeeping:
             return np.array(left_fit), np.array(right_fit)
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            if (np.abs(y2 - y1) < 2) or (np.abs(x2 - x1 < 3)):
+            if (np.abs(y2 - y1) < 4) or (np.abs(x2 - x1 < 3)):
                 continue
-            elif x1 < self.width * 2 / 5:
+            elif (x1 < self.width * 2 / 5):
                 xl.append(x1)
                 yl.append(y1)
                 xl.append(x2)
                 yl.append(y2)
                 pts = np.array([[x1, y1], [x2, y2]], np.int32)
                 cv2.polylines(self.frame, [pts], True, (0, 255, 0), 4)
-                # cv2.line(self.frame,(x1,y1),(x2,y2),(0,255,0),4)
 
-            elif x1 > self.width * 3 / 5:
+            elif (x1 > self.width * 3 / 5):
                 xr.append(x2)
                 yr.append(y2)
                 xr.append(x1)
                 yr.append(y1)
-
-                pts = np.array([[x2, y2], [x1, y1]], np.int32)
+                pts = np.array([[x1, y1], [x2, y2]], np.int32)
                 cv2.polylines(self.frame, [pts], True, (255, 0, 0), 4)
+
         cv2.imshow('lines', self.frame)
 
         yr = np.array(yr)
@@ -87,7 +85,7 @@ class LaneKeeping:
         yl = np.array(yl)
         xl = np.array(xl)
 
-        if (np.count_nonzero(xl) != 0) and (np.count_nonzero(yl) != 0):  # why y,x and not x,y
+        if (np.count_nonzero(xl) != 0) and (np.count_nonzero(yl) != 0):  
             slope_l, middle_l = np.polyfit(yl, xl, 1)
             left_fit.append((slope_l, middle_l))
         if (np.count_nonzero(xr) != 0) and (np.count_nonzero(yr) != 0):
@@ -99,7 +97,7 @@ class LaneKeeping:
         return np.array(left_fit), np.array(right_fit)
 
     def lanes_pipeline(self, cap):
-
+        start = datetime.datetime.now()
         self.frame = cap
         # self.framecount=self.framecount+1
         # if self.framecount%2==1:
@@ -111,17 +109,17 @@ class LaneKeeping:
         # wrapped_image=self.warp(canny_image,self.height,self.width)
         masked_image = self.masked_region(canny_image)
 
-        lines = cv2.HoughLinesP(masked_image, rho=1, theta=np.pi / 180, threshold=30, lines=np.array([]),
-                                minLineLength=3, maxLineGap=7)
+        lines = cv2.HoughLinesP(masked_image, rho=2, theta=np.pi / 180, threshold=20, lines=np.array([]),
+                                minLineLength=3, maxLineGap=13)
         self.left, self.right = self.make_lines(lines)
 
         steering_angle = self.lane_keeping_pipeline()
-
+        end = datetime.datetime.now()
+        print('run time: ', end - start)
         return steering_angle
 
     def get_poly_points(self, left_fit, right_fit):
 
-        # Get the points for the entire height of the image
         plot_y = np.linspace(0, self.height - 1, self.height)
         al, bl = left_fit[0]
         ar, br = right_fit[0]
@@ -132,10 +130,6 @@ class LaneKeeping:
 
     def get_error(self, left_x, right_x):
 
-        # num_lines = 20
-        # line_height = int(self.height / float(num_lines))
-        # # CHECK ORDER FOR WEIGHT AVERAGE
-        # lines = np.flip(np.array([int(self.height - 1 - i * line_height) for i in range(num_lines)]))
         factor = int(round(0.5 * self.height))
         weighted_mean = 0
         sample_right_x = right_x[factor:]
@@ -146,7 +140,6 @@ class LaneKeeping:
             weighted_mean = self.weighted_average(sample_x)
 
         error = weighted_mean - int(self.width / 2.0)
-        print("Center: ", int(self.width / 2.0), " Mean: ", weighted_mean)
 
         return error
 
@@ -176,7 +169,7 @@ class LaneKeeping:
 
             dx = x2 - x1
             dy = self.height
-            self.angle = 90 - math.degrees(math.atan2(dy, dx))
+            self.angle = - 45 + 90 - math.degrees(math.atan2(dy, dx))
 
         elif np.count_nonzero(self.left) == 0 and np.count_nonzero(self.right) != 0:
             print("RIGHT LANE")
@@ -187,7 +180,7 @@ class LaneKeeping:
 
             dx = x2 - x1
             dy = self.height
-            self.angle = 90 - math.degrees(math.atan2(dy, dx))
+            self.angle = 45 + 90 - math.degrees(math.atan2(dy, dx))
 
         else:
             print("No lanes found")
