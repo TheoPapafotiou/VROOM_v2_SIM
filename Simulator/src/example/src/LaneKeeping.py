@@ -1,5 +1,5 @@
 import math
-import datetime 
+import time 
 import cv2
 import numpy as np
 
@@ -13,56 +13,85 @@ To-Do: wrap // why change lane //
 
 class LaneKeeping:
 
-    def __init__(self):
+    def __init__(self, width, height):
         self.angle = 0.0
-        self.last_angle = 0.0
-        self.angle_buffer = []
-        self.moving_size = 4
+        self.LastAngle = 0.0
+        self.AngleBuffer = []
+        self.MovingSize = 4
+        self.height = height
+        self.width = width
+        self.YLimit = 4
+        self.XLimit = 3
+        self.RightBoundary = self.width * 3 / 5
+        self.LeftBoundary = self.width * 2 / 5
+        #image processing parameters
+        self.ThresholdHigh = 150
+        self.ThresholdLow = 350
+        self.KSize = (5, 5)
+        self.BorderType = 0
+        #HoughLinesP() parameters
+        self.rho = 2
+        self.theta = np.pi / 180
+        self.thershold = 20
+        self.minLineLength = 3
+        self.maxLineGap = 13
         # self.framecount = 1
+        # ====TEST CODE====
+        self.last_time = 0
+        self.last_error = 0
+        self.last_PD = 0
+        self.Kp = 0.1  # .06
+        self.Kd = 0.02 # .01
+
+        # Rolling average parameters
+        self.median_matrix = list()
+        self.median_constant = 0
+        self.median = 0.0
+
 
     def canny(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        canny = cv2.Canny(blur, 150, 350)
+        blur = cv2.GaussianBlur(gray, self.KSize, self.BorderType)
+        canny = cv2.Canny(blur, self.ThresholdHigh, self.ThresholdLow)
         return canny
 
     def masked_region(self, image):  
         polygons = np.array([
-            [(self.width / 6, self.height * 3 / 5), (0, self.height * 4 / 5), (self.width, self.height * 4 / 5),
-             (self.width * 5 / 6, self.height * 3 / 5)]
+             [(self.width, self.height * 4 / 5),(self.width * 5 / 6, self.height * 3 / 5), (self.width / 6, self.height * 3 / 5), 
+             (0, self.height * 4 / 5)]
         ])
         mask = np.zeros_like(image)
         cv2.fillPoly(mask, np.int32([polygons]), 255)
-        masked_image = cv2.bitwise_and(image, mask)
-        return masked_image
+        MaskedImage = cv2.bitwise_and(image, mask)
+        return MaskedImage
 
     def warp(self, image, height, width):
         # Destination points for warping
-        dst_points = np.float32(
+        dstPoints = np.float32(
             [[self.width / 7, height * 55 / 100], [0, self.height * 4 / 5], [self.width, self.height * 4 / 5],
              [self.width * 6 / 7, self.height * 55 / 100]])
-        src_points = np.float32(
+        srcPoints = np.float32(
             [[self.width / 6, self.height * 3 / 5], [0, self.height * 4 / 5], [self.width, self.height * 4 / 5],
              [self.width * 5 / 6, self.height * 55 / 100]])
 
-        warp_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-        warped_frame = cv2.warpPerspective(image, warp_matrix, (width, height))
-        return warped_frame
+        WarpMatrix = cv2.getPerspectiveTransform(srcPoints, dstPoints)
+        WarpedFrame = cv2.warpPerspective(image, WarpMatrix, (width, height))
+        return WarpedFrame
 
     def make_lines(self, lines):
-        left_fit = []
-        right_fit = []
+        LeftFit = []
+        RightFit = []
         xl = []
         yl = []
         xr = []
         yr = []
         if lines is None:
-            return np.array(left_fit), np.array(right_fit)
+            return np.array(LeftFit), np.array(RightFit)
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            if (np.abs(y2 - y1) < 4) or (np.abs(x2 - x1 < 3)):
+            if (np.abs(y2 - y1) < self.YLimit) or (np.abs(x2 - x1 < self.XLimit)):
                 continue
-            elif (x1 < self.width * 2 / 5):
+            elif (x1 < self.LeftBoundary):
                 xl.append(x1)
                 yl.append(y1)
                 xl.append(x2)
@@ -70,7 +99,7 @@ class LaneKeeping:
                 pts = np.array([[x1, y1], [x2, y2]], np.int32)
                 cv2.polylines(self.frame, [pts], True, (0, 255, 0), 4)
 
-            elif (x1 > self.width * 3 / 5):
+            elif (x1 > self.RightBoundary):
                 xr.append(x2)
                 yr.append(y2)
                 xr.append(x1)
@@ -86,56 +115,54 @@ class LaneKeeping:
         xl = np.array(xl)
 
         if (np.count_nonzero(xl) != 0) and (np.count_nonzero(yl) != 0):  
-            slope_l, middle_l = np.polyfit(yl, xl, 1)
-            left_fit.append((slope_l, middle_l))
+            SlopeL, MiddleL = np.polyfit(yl, xl, 1)
+            LeftFit.append((SlopeL, MiddleL))
         if (np.count_nonzero(xr) != 0) and (np.count_nonzero(yr) != 0):
-            slope_r, middle_r = np.polyfit(yr, xr, 1)
-            right_fit.append((slope_r, middle_r))
+            SlopeR, MiddleR = np.polyfit(yr, xr, 1)
+            RightFit.append((SlopeR, MiddleR))
 
         # print ('right y,x: ', yr, xr)
         # print ('left y,x: ', yl, xl)
-        return np.array(left_fit), np.array(right_fit)
+        return np.array(LeftFit), np.array(RightFit)
 
     def lanes_pipeline(self, cap):
-        start = datetime.datetime.now()
+        start = time.time()
         self.frame = cap
         # self.framecount=self.framecount+1
         # if self.framecount%2==1:
         #     return self.angle
 
-        self.height = self.frame.shape[0]
-        self.width = self.frame.shape[1]
-        canny_image = self.canny(self.frame)
-        # wrapped_image=self.warp(canny_image,self.height,self.width)
-        masked_image = self.masked_region(canny_image)
+        CannyImage = self.canny(self.frame)
+        # WrappedImage=self.warp(CannyImage,self.height,self.width)
+        MaskedImage = self.masked_region(CannyImage)
 
-        lines = cv2.HoughLinesP(masked_image, rho=2, theta=np.pi / 180, threshold=20, lines=np.array([]),
-                                minLineLength=3, maxLineGap=13)
+        lines = cv2.HoughLinesP(MaskedImage, rho=self.rho, theta=self.theta, threshold=self.thershold, lines=np.array([]),
+                                minLineLength=self.minLineLength, maxLineGap=self.maxLineGap)
         self.left, self.right = self.make_lines(lines)
 
-        steering_angle = self.lane_keeping_pipeline()
-        end = datetime.datetime.now()
-        print('run time: ', end - start)
-        return steering_angle
+        SteeringAngle = self.lane_keeping_pipeline()
+        end = time.time()
+        # print('run time: ', end - start)
+        return SteeringAngle
 
-    def get_poly_points(self, left_fit, right_fit):
+    def get_poly_points(self, LeftFit, RightFit):
 
-        plot_y = np.linspace(0, self.height - 1, self.height)
-        al, bl = left_fit[0]
-        ar, br = right_fit[0]
-        plot_xleft = al * plot_y + bl
-        plot_xright = ar * plot_y + br
+        PlotY = np.linspace(0, self.height - 1, self.height)
+        al, bl = LeftFit[0]
+        ar, br = RightFit[0]
+        PlotXLeft = al * PlotY + bl
+        PlotXRight = ar * PlotY + br
 
-        return plot_xleft.astype(np.int), plot_xright.astype(np.int)
+        return PlotXLeft.astype(np.int), PlotXRight.astype(np.int)
 
-    def get_error(self, left_x, right_x):
+    def get_error(self, LeftX, RightX):
 
         factor = int(round(0.5 * self.height))
         weighted_mean = 0
-        sample_right_x = right_x[factor:]
-        sample_left_x = left_x[factor:]
+        SampleRightX = RightX[factor:]
+        SampleLeftX = LeftX[factor:]
 
-        sample_x = np.array((sample_right_x + sample_left_x) / 2.0)
+        sample_x = np.array((SampleRightX + SampleLeftX) / 2.0)
         if len(sample_x) != 0:
             weighted_mean = self.weighted_average(sample_x)
 
@@ -143,21 +170,21 @@ class LaneKeeping:
 
         return error
 
-    def weighted_average(self, num_list):
+    def weighted_average(self, NumList):
 
         # CHECK WEIGHTS, SHOULD BE FLIPPED?
-        weights = [*range(0, len(num_list))]
-        # mean = int(round(sum([num_list[i] * weights[i] for i in range(count)]) / sum(weights), 2))
-        # mean = int(round(sum([num_list[i]*1 for i in range(count)])/count,2))
-        return np.average(num_list, weights=weights)
+        weights = [*range(0, len(NumList))]
+        # mean = int(round(sum([NumList[i] * weights[i] for i in range(count)]) / sum(weights), 2))
+        # mean = int(round(sum([NumList[i]*1 for i in range(count)])/count,2))
+        return np.average(NumList, weights=weights)
 
     def lane_keeping_pipeline(self):
 
         if np.count_nonzero(self.left) != 0 and np.count_nonzero(self.right) != 0:
             print("BOTH LANES")
 
-            left_x, right_x = self.get_poly_points(self.left, self.right)
-            error = self.get_error(left_x, right_x)
+            LeftX, RightX = self.get_poly_points(self.left, self.right)
+            error = self.get_error(LeftX, RightX)
             self.angle = 90 - math.degrees(math.atan2(self.height, error))
 
         elif np.count_nonzero(self.left) != 0 and np.count_nonzero(self.right) == 0:
@@ -185,24 +212,50 @@ class LaneKeeping:
         else:
             print("No lanes found")
 
-        if np.abs(self.last_angle - self.angle) < 0.5:
-            self.angle = self.last_angle
+        # ===========TEST CODE=========
+        now = time.time()
+        dt = now - self.last_time
+
+        error1 = self.angle
+
+        derivative = self.Kd * (error1 - self.last_error) / dt
+        proportional = self.Kp * error1
+        PD = int(self.angle + derivative + proportional)
+
+        self.last_error = error1
+        self.last_time = time.time()
+
+        # self.median_matrix.insert(0, PD)
+        # if len(self.median_matrix) == self.median_constant:
+        #     self.median = np.average(self.median_matrix)
+        #     PD = self.median
+        #     self.median = 0.0
+        #     self.median_matrix.pop()
+
+        print('derivative',derivative)
+        print('proportional',proportional)
+        print('PD',PD)
+        # ==========END OF TEST CODE=========
+        
+        if np.abs(self.LastAngle - self.angle) < 0.5:
+            self.angle = self.LastAngle
         else:
             if self.angle > 0:
                 self.angle = min(23, self.angle)
             else:
                 self.angle = max(-23, self.angle)
 
-            weights = [*range(1, self.moving_size + 1)]
+            weights = [*range(1, self.MovingSize + 1)]
 
-            if len(self.angle_buffer) >= self.moving_size:
-                self.angle_buffer.pop(0)
-                self.angle_buffer.append(self.angle)
+            if len(self.AngleBuffer) >= self.MovingSize:
+                self.AngleBuffer.pop(0)
+                self.AngleBuffer.append(self.angle)
             else:
-                self.angle_buffer.append(self.angle)
-                weights = [*range(1, len(self.angle_buffer) + 1)]
+                self.AngleBuffer.append(self.angle)
+                weights = [*range(1, len(self.AngleBuffer) + 1)]
 
-            self.angle = np.average(self.angle_buffer, weights=weights)
+            self.angle = np.average(self.AngleBuffer, weights=weights)
+            self.LastAngle = self.angle
 
         print('angle ', self.angle, '\n')
 

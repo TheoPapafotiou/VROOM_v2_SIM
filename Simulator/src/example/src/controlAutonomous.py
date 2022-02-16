@@ -41,7 +41,7 @@ class AutonomousControlProcess():
 
         # [roll, pitch, yaw] params
         self.IMU = IMUHandler()
-        self.Lkeep = LaneKeeping() 
+        self.Lkeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0]) 
         
     # ===================================== RUN ==========================================
     def run(self):
