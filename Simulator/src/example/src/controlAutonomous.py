@@ -14,6 +14,7 @@ from imu                import IMUHandler
 from pathlib import Path
 
 from detectHorizontal   import DetectHorizontal
+from parking            import Parking
 
 import rospy
 
@@ -46,15 +47,23 @@ class AutonomousControlProcess():
         self.IMU = IMUHandler()
 
         # --- WRITE BELOW ---
-        print(Path("src/example/src/default_mask_real.json").absolute())
         self.det = DetectHorizontal(mask_filename="src/example/src/default_mask_simulation2.json")
-
+        
+        self.park = Parking(self._get_perception_results)
+        self.yaw_init = 0.0
+        self.parking_start = False
+        self.parking_running = False
+        self.perception_dict = {}
+        self.parking_type = "None"
         # --- WRITE ABOVE ---
 
     # ===================================== RUN ==========================================
     def run(self):
         """Apply initializing methods and start the threads. 
         """
+        self.parkThread = Thread(name='ParkFunction', target=self._run_parking, daemon=True)
+        # self.lkThread = Thread(name='LaneKeeping', target=self._lane_keeping, daemon=True)
+
         self.mainThread = Thread(name='TestFunction', target=self._test_function, daemon=True)
         self.mainThread.start()
 
@@ -68,20 +77,70 @@ class AutonomousControlProcess():
         print("Threads closed")
 
     # ===================================== TEST FUNCTION ====================================
+    def absolute_yaw_init(self, yaw_init):
+        if -20 < yaw_init < 20:
+            return 0.0
+        elif 70 < yaw_init < 110:
+            return 90.0
+        elif -70 > yaw_init > -110:
+            return -90.0
+        else:
+            return 180
+    
+    def _get_perception_results(self):
+
+        return self.perception_dict
+    
+    def _run_parking(self):
+
+        if self.parking_type == "H":
+            ### Check the initial conditions ###
+            # self.park.check_start("H")
+            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+            self.park.parking_horizontal(self.yaw_init)
+        elif self.parking_type == "V":
+            ### Check the initial conditions ###
+            # self.park.check_start("V")
+            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+            self.park.parking_vertical(self.yaw_init)
+
+        print("Parking finished!")
+        self.parking_running = False
+    
     def _test_function(self):
 
         self.speed = 10
         self.angle = 0
 
         counter = 0
+        parking_sign = False
 
         try:
             while self.reset is False:
                 counter += 1
 
+                ### Just for testing
+                if counter == 10:
+                    parking_sign = True
+
+                self.perception_dict['RayFront'] = self.rayFront.range
+                self.perception_dict['RayRight'] = self.rayRight.range
+                self.perception_dict['Yaw']      = self.IMU.yaw # MUST BE [-180, 180]
+                self.perception_dict['HorLine']  = False
+                self.perception_dict['LKAngle']  = 0.0 # lane_keeping_angle
+
+                if parking_sign and self.parking_running is False:
+                    self.parking_type = "V"
+                    self.parkThread.start()
+                    self.parking_running = True
+                    parking_sign = False
+
                 # --- WRITE BELOW ---
-                dict_hor = self.det.detection(self.color_cam.cv_image)
-                print(dict_hor["avg_y"])
+                if self.parking_running:
+                    self.speed, self.angle = self.park.get_speed_angle()
+                else:
+                    self.angle = 0.0
+                    self.speed = 10
                 # --- WRITE ABOVE ---
 
                 cv2.imshow("Preview", self.color_cam.cv_image) 
