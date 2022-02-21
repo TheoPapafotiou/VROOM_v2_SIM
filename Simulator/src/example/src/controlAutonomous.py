@@ -95,12 +95,12 @@ class AutonomousControlProcess():
 
         if self.parking_type == "H":
             ### Check the initial conditions ###
-            # self.park.check_start("H")
+            self.park.check_start("H")
             self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
             self.park.parking_horizontal(self.yaw_init)
         elif self.parking_type == "V":
             ### Check the initial conditions ###
-            # self.park.check_start("V")
+            self.park.check_start("V")
             self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
             self.park.parking_vertical(self.yaw_init)
 
@@ -109,7 +109,7 @@ class AutonomousControlProcess():
     
     def _test_function(self):
 
-        self.speed = 10
+        self.speed = 15
         self.angle = 0
 
         counter = 0
@@ -140,7 +140,7 @@ class AutonomousControlProcess():
                     self.speed, self.angle = self.park.get_speed_angle()
                 else:
                     self.angle = 0.0
-                    self.speed = 10
+                    self.speed = 15
                 # --- WRITE ABOVE ---
 
                 cv2.imshow("Preview", self.color_cam.cv_image) 
