@@ -30,10 +30,8 @@ class Parking:
         self.threshold_front = 0.3
 
         ### COUNTERS ###
-        self.repetitions = 0
         self.counter_wait = 0
         self.counter_correct = 0
-        self.counter_forward = 0
 
         ### Horizontal Parking Params ###
         self.theta_hor = 23
@@ -83,7 +81,6 @@ class Parking:
             self.threshold_right = 0.4
 
         checked = False
-        rayRight_init = self.get_perc()['RayRight']
         ranges = []
         steps = 0
         start_time_check = time.time()
@@ -93,7 +90,6 @@ class Parking:
             self.angle = self.get_perc()['LKAngle']
             steps += 1
             ranges.append(self.get_perc()['RayRight'])
-            # total_avg = mean(ranges)
             roll_avg = mean(ranges[-self.roll_N:])
 
             if self.car_pos == -1:
