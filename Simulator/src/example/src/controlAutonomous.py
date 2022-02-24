@@ -15,6 +15,7 @@ from pathlib import Path
 
 from detectHorizontal   import DetectHorizontal
 from parking            import Parking
+from overtake           import Overtake
 
 import rospy
 
@@ -26,6 +27,7 @@ class AutonomousControlProcess():
         self.speed = 0.0
         self.angle = 0.0 
         self.reset = False
+        self.perception_dict = {}
 
         rospy.init_node('EXAMPLEnode', anonymous=False)     
         self.publisher = rospy.Publisher('/automobile/command', String, queue_size=1)
@@ -50,11 +52,12 @@ class AutonomousControlProcess():
         self.det = DetectHorizontal(mask_filename="src/example/src/default_mask_simulation2.json")
         
         self.park = Parking(self._get_perception_results)
-        self.yaw_init = 0.0
-        self.parking_start = False
+        self.yaw_init_park = 0.0
         self.parking_running = False
-        self.perception_dict = {}
         self.parking_type = "None"
+
+        self.over = Overtake(self._get_perception_results)
+        self.overtake_running = False
         # --- WRITE ABOVE ---
 
     # ===================================== RUN ==========================================
@@ -62,6 +65,7 @@ class AutonomousControlProcess():
         """Apply initializing methods and start the threads. 
         """
         self.parkThread = Thread(name='ParkFunction', target=self._run_parking, daemon=True)
+        self.overtakeThread = Thread(name='OvertakeFunction', target=self._run_overtake, daemon=True)
         # self.lkThread = Thread(name='LaneKeeping', target=self._lane_keeping, daemon=True)
 
         self.mainThread = Thread(name='TestFunction', target=self._test_function, daemon=True)
@@ -96,16 +100,22 @@ class AutonomousControlProcess():
         if self.parking_type == "H":
             ### Check the initial conditions ###
             self.park.check_start("H")
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.park.parking_horizontal(self.yaw_init)
+            self.yaw_init_park = self.absolute_yaw_init(self.IMU.yaw)
+            self.park.parking_horizontal(self.yaw_init_park)
         elif self.parking_type == "V":
             ### Check the initial conditions ###
             self.park.check_start("V")
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.park.parking_vertical(self.yaw_init)
+            self.yaw_init_park = self.absolute_yaw_init(self.IMU.yaw)
+            self.park.parking_vertical(self.yaw_init_park)
 
         print("Parking finished!")
         self.parking_running = False
+
+    def _run_overtake(self):
+        self.over.maneuver()
+
+        print("Overtake finished!")
+        self.overtake_running = False
     
     def _test_function(self):
 
@@ -113,15 +123,11 @@ class AutonomousControlProcess():
         self.angle = 0
 
         counter = 0
-        parking_sign = False
+        overtake_flag_to_start_the_procedure = False
 
         try:
             while self.reset is False:
                 counter += 1
-
-                ### Just for testing
-                if counter == 10:
-                    parking_sign = True
 
                 self.perception_dict['RayFront'] = self.rayFront.range
                 self.perception_dict['RayRight'] = self.rayRight.range
@@ -129,15 +135,14 @@ class AutonomousControlProcess():
                 self.perception_dict['HorLine']  = False
                 self.perception_dict['LKAngle']  = 0.0 # lane_keeping_angle
 
-                if parking_sign and self.parking_running is False:
-                    self.parking_type = "V"
-                    self.parkThread.start()
-                    self.parking_running = True
-                    parking_sign = False
+                if overtake_flag_to_start_the_procedure and self.overtake_running is False:
+                    self.overtakeThread.start()
+                    self.overtake_running = True
+                    overtake_flag_to_start_the_procedure = False
 
                 # --- WRITE BELOW ---
-                if self.parking_running:
-                    self.speed, self.angle = self.park.get_speed_angle()
+                if self.overtake_running:
+                    self.speed, self.angle = self.over.get_speed_angle()
                 else:
                     self.angle = 0.0
                     self.speed = 15
