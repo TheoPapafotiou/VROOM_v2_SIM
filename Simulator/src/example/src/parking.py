@@ -1,8 +1,5 @@
 from statistics import mean
 import time
-from tracemalloc import start
-import numpy as np
-import math
 
 class Parking:
 
