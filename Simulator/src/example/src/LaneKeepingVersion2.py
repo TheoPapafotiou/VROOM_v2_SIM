@@ -148,8 +148,8 @@ class LaneKeeping:
     def get_poly_points(self, LeftFit, RightFit):
 
         PlotY = np.linspace(0, self.height - 1, self.height)
-        al, bl = LeftFit[0]
-        ar, br = RightFit[0]
+        al, bl = LeftFit[0] # <-- same value for both params!!
+        ar, br = RightFit[0] # <-- same value for both params!!
         PlotXLeft = al * PlotY + bl
         PlotXRight = ar * PlotY + br
 

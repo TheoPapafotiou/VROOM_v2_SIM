@@ -11,7 +11,7 @@ from threading          import Thread
 from camera             import CameraHandler
 from gps                import GPSHandler
 from imu                import IMUHandler
-from LaneKeeping        import LaneKeeping
+from LaneKeepingFinal   import LaneKeeping
 import rospy
 
 class AutonomousControlProcess():
@@ -41,7 +41,7 @@ class AutonomousControlProcess():
 
         # [roll, pitch, yaw] params
         self.IMU = IMUHandler()
-        self.Lkeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0]) 
+        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
         
     # ===================================== RUN ==========================================
     def run(self):
@@ -61,8 +61,7 @@ class AutonomousControlProcess():
 
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
-
-        time.sleep(2)
+        
         self.speed = 15
         self.angle = 0
         
@@ -70,7 +69,7 @@ class AutonomousControlProcess():
             while self.reset is False:
                 print('NEW FRAME:')
                 # cv2.imshow("Preview", self.color_cam.cv_image) 
-                self.angle=self.Lkeep.lanes_pipeline(self.color_cam.cv_image)
+                self.angle = self.Lanekeep.lane_keeping_pipeline(self.color_cam.cv_image)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
