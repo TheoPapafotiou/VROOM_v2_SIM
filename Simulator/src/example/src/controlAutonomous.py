@@ -57,6 +57,7 @@ class AutonomousControlProcess():
         self.parking_type = "None"
 
         self.over = Overtake(self._get_perception_results)
+        self.yaw_init_over = 0.0
         self.overtake_running = False
         # --- WRITE ABOVE ---
 
@@ -135,6 +136,10 @@ class AutonomousControlProcess():
                 self.perception_dict['HorLine']  = False
                 self.perception_dict['LKAngle']  = 0.0 # lane_keeping_angle
 
+                # vehicle_detected = True
+                # if vehicle_detected == True: 
+                #     overtake_flag_to_start_the_procedure = self.over.react_to_vehicle(graph, source, target)
+
                 if overtake_flag_to_start_the_procedure and self.overtake_running is False:
                     self.overtakeThread.start()
                     self.overtake_running = True
@@ -142,7 +147,7 @@ class AutonomousControlProcess():
 
                 # --- WRITE BELOW ---
                 if self.overtake_running:
-                    self.speed, self.angle = self.over.get_speed_angle()
+                    self.angle = self.over.get_angle()
                 else:
                     self.angle = 0.0
                     self.speed = 15
