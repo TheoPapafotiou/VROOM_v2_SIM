@@ -50,25 +50,25 @@
 
     <include>
       <uri>model://ray_front</uri>
-      <pose>0.21 0 0.02 0 0 0</pose>
+      <pose>0.21 0 0.03 0 0 0</pose>
       <name>ray_front</name>
     </include>
 
-    <include>
+    <!-- <include>
       <uri>model://ray_front_left</uri>
-      <pose>0.19 0.06 0.02 0 0 0.4363</pose>
+      <pose>0.19 0.06 0.04 0 0 0.4363</pose>
       <name>ray_front_left</name>
     </include>
 
     <include>
       <uri>model://ray_front_right</uri>
-      <pose>0.19 -0.06 0.02 0 0 -0.4363</pose>
+      <pose>0.19 -0.06 0.04 0 0 -0.4363</pose>
       <name>ray_front_right</name>
     </include>
-    
+     -->
     <include>
       <uri>model://ray_right</uri>
-      <pose>0 -0.09 0.02 0 0 -1.5708</pose>
+      <pose>-0.02 -0.09 0.03 0 0 -1.5708</pose>
       <name>ray_right</name>
     </include>
 
