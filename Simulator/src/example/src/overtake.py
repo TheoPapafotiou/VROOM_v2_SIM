@@ -88,7 +88,6 @@ class Overtake:
                 for i in range(0, len(self.part)):
                     self.part[i] = False
                 self.part[3] = True
-                self.counter = 0
 
             elif self.yaw_diff >= self.threshold and self.part[3] is True: #Turn left 
                 for i in range(0, len(self.part)):
@@ -114,9 +113,7 @@ class Overtake:
             elif self.part[2] is True:
                 print("===================Part 2==================")
                 self.angle = lane_keeping_angle
-                self.counter += 1
 
-                
             elif self.part[3] is True:
                 print("===================Part 3==================")
                 self.angle += self.step_sub
