@@ -4,7 +4,6 @@ import json
 import cv2
 import time
 import numpy as np
-from sympy import Intersection
 
 from ranging_sensors    import RangeHandler
 from std_msgs.msg       import String
@@ -13,7 +12,6 @@ from camera             import CameraHandler
 from gps                import GPSHandler
 from imu                import IMUHandler
 from LaneKeepingFinal   import LaneKeeping
-from intersection       import Intersection
 import rospy
 
 class AutonomousControlProcess():
@@ -45,14 +43,7 @@ class AutonomousControlProcess():
         self.IMU = IMUHandler()
 
         #for lane keeping
-        self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))        
         self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
-        
-        #for intersection 
-        self.yaw_init = 0.0
-        self.intersection_type = "None"
-        self.intersection_running = False
-        self.intersection= Intersection()
 
     # ===================================== RUN ==========================================
     def run(self):
@@ -67,47 +58,12 @@ class AutonomousControlProcess():
         self.angleThread = Thread(name='AngleFunction', target=self._command_angle, daemon=True)
         self.angleThread.start()
 
-        self.intersectionThread = Thread(name='InterFunction', target=self._run_intersection, daemon=True)
-
         rospy.spin()
         print("Threads closed")
-
-    # ===================================== For Intersection ======================================
-    def absolute_yaw_init(self, yaw_init):
-        if -20 < yaw_init < 20:
-            return 0.0
-        elif 70 < yaw_init < 110:
-            return 90.0
-        elif -70 > yaw_init > -110:
-            return -90.0
-        else:
-            return 180
-
-    def _get_perception_results(self):
-
-        return self.perception_dict
-
-    def _run_intersection(self):
-
-        if self.intersection_type == "R":
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.small_right_turn()
-
-        # elif self.inersection_type == "L":
-        #     self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-        #     self.intersection.intersection_left(self.color_cam.cv_image)
-            
-        elif self.inersection_type == "S":
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.straight()
-
-        print("Intersection finished!")
-        self.intersection_running = False
 
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
         
-        time.sleep(1)
         self.speed = 15
         self.angle = 0
 
@@ -115,19 +71,8 @@ class AutonomousControlProcess():
             while self.reset is False:
                 print('NEW FRAME:')
                 cv2.imshow("Preview", self.color_cam.cv_image) 
-                self.perception_dict['Yaw'] = self.IMU.yaw # MUST BE [-180, 180]
 
-                if self.intersection_running is False:  
-                    self.intersection_type = "R"
-                    self.intersectionThread.start()
-                    self.intersection_running = True
-
-                if self.intersection_running:
-                   self.lane_frame=self.color_cam.cv_image
-                else:
-                    self.lane_frame = self.color_cam.cv_image
-
-                self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
+                self.angle = self.Lanekeep.lane_keeping_pipeline(self.color_cam.cv_image)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
