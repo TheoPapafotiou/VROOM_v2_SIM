@@ -93,7 +93,7 @@ class AutonomousControlProcess():
 
         if self.intersection_type == "R":
             self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.small_right_turn()
+            self.intersection.small_right_turn(self.yaw_init)
 
         elif self.intersection_type == "L":
             self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
@@ -105,6 +105,7 @@ class AutonomousControlProcess():
 
         print("Intersection finished!")
         self.intersection_running = False
+        self.speed=0
         self.intersectionThread.join
 
     # ===================================== TEST FUNCTION ====================================
@@ -113,28 +114,31 @@ class AutonomousControlProcess():
         time.sleep(1)
         self.speed = 15
         self.angle = 0
+        count=0
 
         try:
             while self.reset is False:
                 print('NEW FRAME:')
+                
                 cv2.imshow("Preview", self.color_cam.cv_image) 
-
+                
                 self.perception_dict['Yaw'] = self.IMU.yaw # MUST BE [-180, 180]
                 self.perception_dict['Camera'] = self.color_cam.cv_image
-
-                if self.intersection_running is False:  
-                    self.intersection_type = "S"
+                
+                if self.intersection_running is False and count==0:  
+                    self.intersection_type = "R"
                     self.intersectionThread.start()
                     self.intersection_running = True
                     self.start_yaw = self.perception_dict['Yaw']
                     self.cam_input = self.perception_dict['Camera']
+                    count=1
 
                 time.sleep(0.02)
                 if self.intersection_running:
-                   self.lane_frame=self.intersection.frame
+                    self.lane_frame=self.intersection.frame
                 else:
                     self.lane_frame = self.color_cam.cv_image
-
+                
                 self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):

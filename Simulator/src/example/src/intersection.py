@@ -1,6 +1,6 @@
 from __future__ import print_function
 from re import X
-from matplotlib import image
+# from matplotlib import image
 import numpy as np
 import cv2 
 import time
@@ -8,7 +8,7 @@ from skimage.measure import ransac, LineModelND
 
 class Intersection:
 
-    def __init__(self, width,height,get_perception ):
+    def __init__(self, width, height, get_perception):
 
         self.get_perc = get_perception 
         self.width = width
@@ -23,7 +23,6 @@ class Intersection:
         self.data = []
         self.frame = np.zeros((640, 480, 3))      
         self.finished = False  
-
 
     def make_lines(self,lines,newwidth,start):
         xl = []
@@ -84,6 +83,7 @@ class Intersection:
         return img
 
     def canny(self, image):
+        image = image.astype(np.uint8)
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         blur = cv2.GaussianBlur(gray, (5,5), 0)
         canny = cv2.Canny(blur, 150, 350)
@@ -158,8 +158,10 @@ class Intersection:
 
     def draw_ellipse(self,
         img, center, axes, angle,
-        startAngle, endAngle, color,
-        thickness=10, lineType=cv2.LINE_AA, shift=10):
+        startAngle, endAngle, color):
+        thickness=10
+        lineType=cv2.LINE_AA
+        shift=10
         # uses the shift to accurately get sub-pixel resolution for arc
         center = (
             int(round(center[0] * 2**shift)),
@@ -192,40 +194,42 @@ class Intersection:
             return self.x_points,self.y_points
 
 
-    def small_right_turn(self):
-        self.start_yaw=self.get_perc()['Yaw'] 
-
-
+    def small_right_turn(self, yaw_init):
+         
         while self.finished is False:
-            startD = time.time()
-            self.cam_frame=self.get_perc()['Camera']
+            # startD = time.time()
 
+            self.cam_frame=self.get_perc()['Camera']
             img=self.cam_frame
             cannyimg= self.canny(img)
             maskedimg=self.mask(cannyimg,2)
+            
             lines = cv2.HoughLinesP(maskedimg, rho=2, theta=np.pi/180, threshold=20, lines=np.array([]),
                                         minLineLength=3, maxLineGap=40)
+            
             start,newwidth=self.thresh_callback(maskedimg)
             left,right = self.make_lines(lines,newwidth,start)
             a,b= self.intersection(left,right)
-
+           
             # cv2.circle(maskedimg, (a,b), 10, color=(255, 0, 0), thickness=-1)
-            duration = time.time() - startD 
+            # duration = time.time() - startD 
             ### ARC ### 
             pt1 = (int(self.height*0.34),int(self.width))
             pt2 = (a,b)
             sagitta = 50
             center, radius, start_angle, end_angle = self.convert_arc(pt1, pt2, sagitta)
             axes = (radius, radius)
+            
             self.draw_ellipse(self.cam_frame, center, axes, 0, start_angle, end_angle, 255)
             self.frame=self.cam_frame
+          
             # print("DURATION / FRAME", duration)
             cv2.imshow('t',self.cam_frame)
         
-            x=np.abs(np.abs(self.start_yaw) - np.abs(self.get_perc()['Yaw'])) 
+            x=np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])) 
             print('yaw',x)
-
-            if  np.abs(np.abs(self.start_yaw) - np.abs(self.get_perc()['Yaw'])) > 50 :
+            print('perc', self.get_perc()['Yaw'])
+            if  np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])) > 26:
                 self.finished=True
 
 
