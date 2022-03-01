@@ -10,9 +10,8 @@ class Overtake:
 
         self.get_perc = get_perception
         self.angle = 0.0
+        self.max_angle = 23.0
         self.dotted = False
-
-        self.distance_threshold = 0.8
 
         self.laneKeepingFlag = False
 
@@ -23,9 +22,9 @@ class Overtake:
         self.yaw_margin = 3
 
         self.part = [False, False, False, False, False]
-        self.vehicle_passed = True
+        self.vehicle_passed = False
 
-        self.threshold = 16
+        self.threshold = 35
 
         self.step_sub = 2
         self.yaw_diff = 0
@@ -39,13 +38,13 @@ class Overtake:
 
     def react_to_vehicle(self,  graph, source, target):
         
-        self.check_dotted_line(graph, source, target)
+        # self.check_dotted_line(graph, source, target)
 
         overtake_allowed = False
-
+        
         distance_from_vehicle = self.get_perc()['RayFront']
-
-        if distance_from_vehicle <= self.distance_threshold and self.dotted is True:
+        print("Distance = ", distance_from_vehicle)
+        if 0 < distance_from_vehicle <= self.distance_threshold_front and self.dotted is True:
             overtake_allowed = True
             print("Distance = ", distance_from_vehicle)
 
@@ -53,6 +52,14 @@ class Overtake:
         return overtake_allowed
 
     def get_angle(self):
+
+        if self.angle > self.max_angle:
+            self.angle = self.max_angle
+
+        elif self.angle < -self.max_angle:
+            self.angle = -self.max_angle
+
+        print("Angle = ", self.angle)
         return self.angle
 
     def maneuver(self, yaw_init):
@@ -61,6 +68,8 @@ class Overtake:
 
         while self.finished is False:
 
+            distance_from_vehicle = self.get_perc()['RayFront']
+            print("Distance = ", distance_from_vehicle)
             yaw = self.get_perc()['Yaw']
 
             ranges.append(self.get_perc()['RayRight'])
@@ -73,7 +82,7 @@ class Overtake:
             print("Yaw_init = ", yaw_init, "\nYaw = ", yaw)
             print("diff = ", self.yaw_diff)
 
-            if roll_avg > self.distance_threshold_right:
+            if roll_avg > self.distance_threshold_right and self.part[2] is True:
                 self.vehicle_passed = True
 
             if yaw_init - self.yaw_margin <= yaw <= yaw_init + self.yaw_margin and not any(self.part[0:-1]): # Turn left
@@ -132,3 +141,5 @@ class Overtake:
 
             else:
                 print("No part!")
+
+            time.sleep(0.1)

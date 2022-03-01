@@ -113,14 +113,15 @@ class AutonomousControlProcess():
         self.parking_running = False
 
     def _run_overtake(self):
-        self.over.maneuver()
+        self.yaw_init_over = self.IMU.yaw
+        self.over.maneuver(self.yaw_init_over)
 
-        print("Overtake finished!")
         self.overtake_running = False
+        print("Overtake finished!")
     
     def _test_function(self):
 
-        self.speed = 15
+        self.speed = 10
         self.angle = 0
 
         counter = 0
@@ -136,9 +137,14 @@ class AutonomousControlProcess():
                 self.perception_dict['HorLine']  = False
                 self.perception_dict['LKAngle']  = 0.0 # lane_keeping_angle
 
-                # vehicle_detected = True
-                # if vehicle_detected == True: 
-                #     overtake_flag_to_start_the_procedure = self.over.react_to_vehicle(graph, source, target)
+                vehicle_detected = True
+                self.over.dotted = True
+                graph = 1
+                source = 1
+                target = 1
+
+                if vehicle_detected == True: 
+                    overtake_flag_to_start_the_procedure = self.over.react_to_vehicle(graph, source, target)
 
                 if overtake_flag_to_start_the_procedure and self.overtake_running is False:
                     self.overtakeThread.start()
@@ -151,6 +157,10 @@ class AutonomousControlProcess():
                 else:
                     self.angle = 0.0
                     self.speed = 15
+                    if self.over.finished:
+                        print("Time to die [Overtake]")
+                        self.overtakeThread.join()
+                        self.over.finished = False
                 # --- WRITE ABOVE ---
 
                 cv2.imshow("Preview", self.color_cam.cv_image) 
@@ -159,7 +169,7 @@ class AutonomousControlProcess():
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
 
-                time.sleep(0.01)
+                time.sleep(0.05)
 
             self.speed = 0.0
         
