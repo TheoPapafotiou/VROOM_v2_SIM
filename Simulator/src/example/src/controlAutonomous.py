@@ -4,7 +4,6 @@ import json
 import cv2
 import time
 import numpy as np
-from sympy import Intersection
 
 from ranging_sensors    import RangeHandler
 from std_msgs.msg       import String
@@ -106,7 +105,6 @@ class AutonomousControlProcess():
         print("Intersection finished!")
         self.intersection_running = False
         self.speed=0
-        self.intersectionThread.join
 
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
@@ -120,7 +118,7 @@ class AutonomousControlProcess():
             while self.reset is False:
                 print('NEW FRAME:')
                 
-                cv2.imshow("Preview", self.color_cam.cv_image) 
+                # cv2.imshow("Preview", self.color_cam.cv_image) 
                 
                 self.perception_dict['Yaw'] = self.IMU.yaw # MUST BE [-180, 180]
                 self.perception_dict['Camera'] = self.color_cam.cv_image
@@ -135,7 +133,7 @@ class AutonomousControlProcess():
 
                 time.sleep(0.02)
                 if self.intersection_running:
-                    self.lane_frame=self.intersection.frame
+                    self.lane_frame=self.intersection.lane_frame
                 else:
                     self.lane_frame = self.color_cam.cv_image
                 

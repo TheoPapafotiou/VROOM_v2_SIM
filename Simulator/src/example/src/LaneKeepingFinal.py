@@ -436,6 +436,6 @@ class LaneKeeping:
         self.angle_calculation(left, right)
         self.fix_angle()
 
-        cv2.imshow('edged', edged)
+        # cv2.imshow('edged', edged)
 
         return self.angle

@@ -1,5 +1,3 @@
-from __future__ import print_function
-from re import X
 # from matplotlib import image
 import numpy as np
 import cv2 
@@ -23,6 +21,7 @@ class Intersection:
         self.data = []
         self.frame = np.zeros((640, 480, 3))      
         self.finished = False  
+        self.lane_frame = np.zeros((self.width, self.height, 3))        
 
     def make_lines(self,lines,newwidth,start):
         xl = []
@@ -83,7 +82,7 @@ class Intersection:
         return img
 
     def canny(self, image):
-        image = image.astype(np.uint8)
+        # image = image.astype(np.uint8)
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         blur = cv2.GaussianBlur(gray, (5,5), 0)
         canny = cv2.Canny(blur, 150, 350)
@@ -107,11 +106,11 @@ class Intersection:
         contours=contours[0] if len(contours)==2 else contours[1]
         count=0
         for c in contours:
-            count=count+1
-            x,y,w,h=cv2.boundingRect(c)
-            if count==1:
-                xmax=x 
-                wmax=w 
+            count = count+1
+            x,y,w,h = cv2.boundingRect(c)
+            if count == 1:
+                xmax = x 
+                wmax = w 
         return xmax,wmax
 
         ### DRAWING THE ARC FOR THE TURN ###
@@ -220,22 +219,26 @@ class Intersection:
             center, radius, start_angle, end_angle = self.convert_arc(pt1, pt2, sagitta)
             axes = (radius, radius)
             
-            self.draw_ellipse(self.cam_frame, center, axes, 0, start_angle, end_angle, 255)
+            # self.draw_ellipse(self.lane_frame, center, axes, 0, start_angle, end_angle, 255)
             self.frame=self.cam_frame
           
             # print("DURATION / FRAME", duration)
-            cv2.imshow('t',self.cam_frame)
-        
+            # cv2.imshow('t',self.lane_frame)
+
             x=np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])) 
-            print('yaw',x)
-            print('perc', self.get_perc()['Yaw'])
+            # print('yaw',x)
+            # print('perc', self.get_perc()['Yaw'])
             if  np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])) > 26:
                 self.finished=True
+
+            time.sleep(0.1)
 
 
     def straight(self):
         counter = 0
         counter3 = 0
+        startD = time.time()
+
         while self.finished is False:
             self.cam_frame=self.get_perc()['Camera']
             frame=self.cam_frame
@@ -261,7 +264,11 @@ class Intersection:
                     counter3 = counter3 + 1
                     cv2.line(frame, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 9)
                     cv2.line(frame, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 9)
-            cv2.imshow('t',self.cam_frame)
+            endD = time.time()
+
+            # cv2.imshow('t',self.cam_frame)
+            if endD-startD > 12:
+                self.finished=True
 
             
 
