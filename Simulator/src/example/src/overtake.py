@@ -1,4 +1,5 @@
 import time
+from statistics import mean
 
 class Overtake:
 
@@ -29,6 +30,8 @@ class Overtake:
         self.step_sub = 2
         self.yaw_diff = 0
 
+        self.roll_N = 6
+
         self.finished = False
 
     def check_dotted_line(self, graph, source, target):
@@ -54,10 +57,15 @@ class Overtake:
 
     def maneuver(self, yaw_init):
         
+        ranges = []
+
         while self.finished is False:
 
             yaw = self.get_perc()['Yaw']
-            distance_from_vehicle_right = self.get_perc()['RayRight']
+
+            ranges.append(self.get_perc()['RayRight'])
+            roll_avg = mean(ranges[-self.roll_N:])
+            
             lane_keeping_angle = self.get_perc()['LKAngle']
 
             self.yaw_diff = abs(yaw-yaw_init)
@@ -65,7 +73,7 @@ class Overtake:
             print("Yaw_init = ", yaw_init, "\nYaw = ", yaw)
             print("diff = ", self.yaw_diff)
 
-            if distance_from_vehicle_right > self.distance_threshold_right:
+            if roll_avg > self.distance_threshold_right:
                 self.vehicle_passed = True
 
             if yaw_init - self.yaw_margin <= yaw <= yaw_init + self.yaw_margin and not any(self.part[0:-1]): # Turn left
