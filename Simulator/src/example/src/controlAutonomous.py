@@ -16,6 +16,7 @@ from pathlib import Path
 from detectHorizontal   import DetectHorizontal
 from parking            import Parking
 from overtake           import Overtake
+from pathplanning.PathPlanning import PathPlanning as pp
 
 import rospy
 
@@ -59,6 +60,14 @@ class AutonomousControlProcess():
         self.over = Overtake(self._get_perception_results)
         self.yaw_init_over = 0.0
         self.overtake_running = False
+
+        # Path planning parameters
+        self.starting_node = '59'
+        self.finish_node = '156'
+        self.complete_path = ['59', '65', '62', '148', '149', '150', '151', '152', '153', '154', '155', '156']
+        self.desired_path = pp.remove_central_nodes(self.complete_path)
+        self.X = 0
+        self.Y = 0
         # --- WRITE ABOVE ---
 
     # ===================================== RUN ==========================================
@@ -127,9 +136,19 @@ class AutonomousControlProcess():
         counter = 0
         overtake_flag_to_start_the_procedure = False
 
+        print(self.complete_path)
+        print(self.desired_path)
+        
         try:
             while self.reset is False:
                 counter += 1
+
+                self.X = self.GPS.pos[0]
+                self.Y = self.GPS.pos[1]
+
+                print(self.GPS.pos)
+                self.desired_path, finish_reached = pp.update_path(self.desired_path, self.X, self.Y, self.finish_node)
+                print(self.desired_path)
 
                 self.perception_dict['RayFront'] = self.rayFront.range
                 self.perception_dict['RayRight'] = self.rayRight.range
