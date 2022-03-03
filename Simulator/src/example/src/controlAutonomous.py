@@ -13,6 +13,7 @@ from gps                import GPSHandler
 from imu                import IMUHandler
 from LaneKeepingFinal   import LaneKeeping
 from intersection       import Intersection
+from intersection2      import Intersection2
 import rospy
 
 class AutonomousControlProcess():
@@ -44,15 +45,16 @@ class AutonomousControlProcess():
         self.IMU = IMUHandler()
 
         #for lane keeping
-        self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))        
-        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
+        # self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))        
+        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=2) 
         
         #for intersection 
         self.yaw_init = 0.0
         self.intersection_type = "None"
         self.intersection_running = False
         self.perception_dict = {}
-        self.intersection= Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
+        # self.intersection= Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
+        self.intersection2= Intersection2(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
 
     # ===================================== RUN ==========================================
     def run(self):
@@ -91,20 +93,20 @@ class AutonomousControlProcess():
     def _run_intersection(self):
 
         if self.intersection_type == "R":
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.small_right_turn(self.yaw_init)
+            yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+            self.intersection2.small_right_turn(yaw_init)
 
-        elif self.intersection_type == "L":
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.intersection_left(self.color_cam.cv_image)
+        # elif self.intersection_type == "L":
+        #     self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+        #     self.intersection.intersection_left(self.color_cam.cv_image)
             
-        elif self.intersection_type == "S":
-            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.straight()
+        # elif self.intersection_type == "S":
+        #     self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+        #     self.intersection2.straight()
 
         print("Intersection finished!")
         self.intersection_running = False
-        self.speed=0
+        # self.speed=0
 
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
@@ -118,11 +120,10 @@ class AutonomousControlProcess():
             while self.reset is False:
                 print('NEW FRAME:')
                 
-                # cv2.imshow("Preview", self.color_cam.cv_image) 
-                
                 self.perception_dict['Yaw'] = self.IMU.yaw # MUST BE [-180, 180]
                 self.perception_dict['Camera'] = self.color_cam.cv_image
-                
+                # print('IMU yaw',self.IMU.yaw)
+
                 if self.intersection_running is False and count==0:  
                     self.intersection_type = "R"
                     self.intersectionThread.start()
@@ -131,12 +132,15 @@ class AutonomousControlProcess():
                     self.cam_input = self.perception_dict['Camera']
                     count=1
 
-                time.sleep(0.02)
                 if self.intersection_running:
-                    self.lane_frame=self.intersection.lane_frame
+                    self.lane_frame=self.intersection2.cam_frame
+
                 else:
+                    # self.angle = self.Lanekeep.lane_keeping_pipeline(self.color_cam.cv_image)
                     self.lane_frame = self.color_cam.cv_image
-                
+
+                # cv2.imshow("Preview", self.lane_frame) 
+                # cv2.waitKey(1)
                 self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):

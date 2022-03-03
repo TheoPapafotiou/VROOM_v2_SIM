@@ -235,7 +235,7 @@ class LaneKeeping:
         out[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
         out[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [255, 10, 255]
 
-        return np.array([left_fit, right_fit, out])
+        return np.array([left_fit, right_fit])
 
     def get_poly_points(self, left_fit, right_fit, polynomial=2):
 
@@ -318,7 +318,7 @@ class LaneKeeping:
                                 np.array([]), minLineLength=8, maxLineGap=4)
     
         if thresholded is not None:
-            left, right, out = self.polyfit_sliding_window(thresholded)
+            left, right = self.polyfit_sliding_window(thresholded)
         else:
             left, right = self.make_lanes(lines, edged)
 
@@ -362,7 +362,7 @@ class LaneKeeping:
 
         elif self.version == 2:
             if np.count_nonzero(left) != 0 and np.count_nonzero(right) != 0:
-                print("BOTH LANES")
+                # print("BOTH LANES")
 
                 left_x, left_y, right_x, right_y = self.get_poly_points(left, right, polynomial=1)
                 error, setpoint = self.get_error(left_x, right_x)
@@ -370,7 +370,7 @@ class LaneKeeping:
                 self.angle = 90 - math.degrees(math.atan2(self.height, error))
 
             elif np.count_nonzero(left) != 0 and np.count_nonzero(right) == 0:
-                print("LEFT LANE")
+                # print("LEFT LANE")
 
                 a, b = left[0]
                 x1 = a * self.height + b
@@ -382,7 +382,7 @@ class LaneKeeping:
                 self.angle = - 45 + 90 - math.degrees(math.atan2(dy, dx))
 
             elif np.count_nonzero(left) == 0 and np.count_nonzero(right) != 0:
-                print("RIGHT LANE")
+                # print("RIGHT LANE")
 
                 a, b = right[0]
                 x1 = a * self.height + b
@@ -436,6 +436,7 @@ class LaneKeeping:
         self.angle_calculation(left, right)
         self.fix_angle()
 
-        # cv2.imshow('edged', edged)
+        cv2.imshow('edged', edged)
+        cv2.waitKey(1)
 
         return self.angle
