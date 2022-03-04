@@ -124,9 +124,9 @@ class AutonomousControlProcess():
                 self.perception_dict['Camera'] = self.color_cam.cv_image
                 self.perception_dict['Speed'] = self.speed
                 # print('IMU yaw',self.IMU.yaw)
-
+               
                 if self.intersection_running is False and count==0:  
-                    self.intersection_type = "R"
+                    self.intersection_type = "S"
                     self.intersectionThread.start()
                     self.intersection_running = True
                     self.start_yaw = self.perception_dict['Yaw']
@@ -134,18 +134,19 @@ class AutonomousControlProcess():
                     count=1
 
                 if self.intersection_running:
-                    self.lane_frame=self.intersection2.lane_frame_int
-
+                    self.lane_frame = self.intersection2.lane_frame_int
+                    # cv2.imshow('t',self.lane_frame)
+                    # cv2.waitKey(1)
                 else:
-                    # self.angle = self.Lanekeep.lane_keeping_pipeline(self.color_cam.cv_image)
                     self.lane_frame = self.color_cam.cv_image
 
-                # cv2.imshow("Preview", self.lane_frame) 
-                # cv2.waitKey(1)
-                if len(self.intersection.get_x_point()) <= 5 and len(self.intersection.get_y_point()) <= 5: 
-                    self.angle = 0
-                else:
+                cv2.imshow("Preview", self.lane_frame) 
+                cv2.waitKey(1)
+                
+                if self.intersection2.increase_angle is False:
                     self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
+                else:
+                    self.angle += 0.5
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
@@ -192,6 +193,11 @@ class AutonomousControlProcess():
 
             time.sleep(0.05)
             data = {}
+            if self.angle > 23.0:
+                self.angle = 23.0
+            elif self.angle < -23.0:
+                self.angle = - 23.0
+
             data['action'] = '2'
             data['steerAngle'] = float(self.angle)
 
