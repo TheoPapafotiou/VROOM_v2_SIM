@@ -122,6 +122,7 @@ class AutonomousControlProcess():
                 
                 self.perception_dict['Yaw'] = self.IMU.yaw # MUST BE [-180, 180]
                 self.perception_dict['Camera'] = self.color_cam.cv_image
+                self.perception_dict['Speed'] = self.speed
                 # print('IMU yaw',self.IMU.yaw)
 
                 if self.intersection_running is False and count==0:  
@@ -133,7 +134,7 @@ class AutonomousControlProcess():
                     count=1
 
                 if self.intersection_running:
-                    self.lane_frame=self.intersection2.cam_frame
+                    self.lane_frame=self.intersection2.lane_frame_int
 
                 else:
                     # self.angle = self.Lanekeep.lane_keeping_pipeline(self.color_cam.cv_image)
@@ -141,7 +142,10 @@ class AutonomousControlProcess():
 
                 # cv2.imshow("Preview", self.lane_frame) 
                 # cv2.waitKey(1)
-                self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
+                if len(self.intersection.get_x_point()) <= 5 and len(self.intersection.get_y_point()) <= 5: 
+                    self.angle = 0
+                else:
+                    self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
