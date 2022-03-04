@@ -153,7 +153,7 @@ class AutonomousControlProcess():
                 time.sleep(0.1)
 
             self.speed = 0.0
-        
+        #ok
         except Exception as e:
             print(e)
                  
