@@ -46,7 +46,7 @@ class AutonomousControlProcess():
 
         #for lane keeping
         # self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))        
-        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=2) 
+        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
         
         #for intersection 
         self.yaw_init = 0.0
@@ -100,9 +100,9 @@ class AutonomousControlProcess():
         #     self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
         #     self.intersection.intersection_left(self.color_cam.cv_image)
             
-        # elif self.intersection_type == "S":
-        #     self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-        #     self.intersection2.straight()
+        elif self.intersection_type == "S":
+            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+            self.intersection2.straight()
 
         print("Intersection finished!")
         self.intersection_running = False

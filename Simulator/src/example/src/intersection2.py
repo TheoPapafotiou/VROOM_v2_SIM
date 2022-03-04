@@ -36,7 +36,7 @@ class Intersection2:
         # for the straight 
         if case == 1:
             polygons=np.array([
-                [(0,int(self.height)),(int(self.width/2.5),int(self.height*0.4)),(int(self.width/2),int(self.height*0.4)),(int(self.width/2),int(self.height))] #(y,x)
+                [(0,int(self.height*0.7)),(int(self.width/2.5),int(self.height*0.4)),(int(self.width/2),int(self.height*0.4)),(int(self.width/2),int(self.height*0.7))] #(y,x)
                 ])
 
         # for the small right turn 
@@ -55,18 +55,10 @@ class Intersection2:
         ymax=0
         contours= cv2.findContours(maskedimg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours=contours[0] if len(contours)==2 else contours[1]
-        # count=0
-        # for c in contours:
-        #     count = count+1
-        #     x,y,w,h = cv2.boundingRect(c)
-        #     if count == 1:
-        #         xmax = x 
-        #         wmax = w 
 
-        #======= test code
         for c in contours:
             x,y,w,h = cv2.boundingRect(c)
-            if w > 30: 
+            if w > 40: 
                 if (xmax+wmax) < (x+w):
                     cv2.rectangle(self.cam_frame,(x,y),(x+w,y+h),(0,255,0),2)
                     xmax = x 
@@ -207,9 +199,9 @@ class Intersection2:
             # a,b= self.intersection(left,right)          
             # pt1 = (int(self.height*0.34),int(self.width))
 
-            pt1=(int(self.width/4),int(self.height))
+            
             #====== Test code===
-
+            pt1=(int(self.width/4),int(self.height))
             a,b=self.thresh_callback(maskedimg)
             pt2 = (a,b)
             sagitta = 40
@@ -230,3 +222,66 @@ class Intersection2:
                 self.finished=True
 
             time.sleep(0.15)
+
+    def ransac_method(self):
+        self.data = np.column_stack([self.x_points,self.y_points])
+        model = LineModelND()
+        if len(self.data) > 2:
+            model.estimate(self.data)
+            model_robust, inliers = ransac(self.data, LineModelND, min_samples=4,
+                                    residual_threshold=2, max_trials=1000)
+            outliers = inliers == False 
+            line_x = self.x_points
+            line_y = model.predict_y(line_x)
+            line_y_robust = list(model_robust.predict_y(line_x))
+            return line_x, line_y_robust
+        else:
+            return self.x_points,self.y_points
+
+    def cornerHarris2(self,img):
+        corners = cv2.goodFeaturesToTrack(img,25,0.01,10)
+        if corners is not None:
+            corners = np.int0(corners)
+            for i in corners:
+                x,y = i.ravel()
+                cv2.circle(img,(x,y),3,255,-1)
+                self.x_points.append(x)
+                self.y_points.append(y)
+        return img     
+
+    def straight(self):
+        counter = 0
+        counter3 = 0
+        startD = time.time()
+
+        while self.finished is False:
+            self.cam_frame=self.get_perc()['Camera']
+            
+            cannyimg = self.canny(self.cam_frame)
+            img = self.mask(cannyimg,1)
+
+            img = self.cornerHarris2(img)
+            # cv2.putText(img, 'SIMPLE HARRIS', (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2,cv2.LINE_4)
+
+            if self.counter2 < 5:            
+                self.x_points,self.y_points= self.ransac_method()
+                self.counter2 += 1                            
+            if self.counter2 == 5:
+                if self.counter2 %5 == 0:
+                    self.x_points,self.y_points= self.ransac_method()
+                # keep the points on the upper part of the img
+                if self.y_points[counter] < self.height*0.6: 
+                    cv2.line(self.cam_frame, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(self.cam_frame, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    counter3 = 0
+                else: 
+                    counter3 = counter3 + 1
+                    cv2.line(self.cam_frame, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
+                    cv2.line(self.cam_frame, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
+            endD = time.time()
+            
+            cv2.imshow('t',self.cam_frame)
+            cv2.waitKey(1)
+
+            if endD-startD > 15:
+                self.finished=True
