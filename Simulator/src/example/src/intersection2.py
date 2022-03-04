@@ -23,10 +23,17 @@ class Intersection2:
         self.finished = False  
         self.reached= False
         self.framecount=0
-        # self.lane_frame = np.zeros((self.width, self.height, 3))  
+        self.lane_frame_int = np.zeros((self.width, self.height, 3), dtype = np.uint8)  
+   
+    def get_x_point(self):
+        return self.x_points
+
+
+    def get_y_point(self):
+        return self.y_points
+
 
     def canny(self, image):
-        # image = image.astype(np.uint8)
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         blur = cv2.GaussianBlur(gray, (5,5), 0)
         canny = cv2.Canny(blur, 150, 350)
@@ -36,7 +43,7 @@ class Intersection2:
         # for the straight 
         if case == 1:
             polygons=np.array([
-                [(0,int(self.height*0.7)),(int(self.width/2.5),int(self.height*0.4)),(int(self.width/2),int(self.height*0.4)),(int(self.width/2),int(self.height*0.7))] #(y,x)
+                [(int(self.width*0.4),int(self.height/3.5)),(int(self.width/3),int(self.height*0.45)),(int(self.width*0.5),int(self.height*0.45)),(int(self.width*0.5),int(self.height/3.5))] #(y,x)
                 ])
 
         # for the small right turn 
@@ -226,9 +233,10 @@ class Intersection2:
     def ransac_method(self):
         self.data = np.column_stack([self.x_points,self.y_points])
         model = LineModelND()
-        if len(self.data) > 2:
+        min_sample = 4
+        if len(self.data) > min_sample:
             model.estimate(self.data)
-            model_robust, inliers = ransac(self.data, LineModelND, min_samples=4,
+            model_robust, inliers = ransac(self.data, LineModelND, min_sample,
                                     residual_threshold=2, max_trials=1000)
             outliers = inliers == False 
             line_x = self.x_points
@@ -238,7 +246,7 @@ class Intersection2:
         else:
             return self.x_points,self.y_points
 
-    def cornerHarris2(self,img):
+    def cornerHarris(self,img):
         corners = cv2.goodFeaturesToTrack(img,25,0.01,10)
         if corners is not None:
             corners = np.int0(corners)
@@ -256,32 +264,43 @@ class Intersection2:
 
         while self.finished is False:
             self.cam_frame=self.get_perc()['Camera']
+            speed = self.get_perc()['Speed']
             
             cannyimg = self.canny(self.cam_frame)
             img = self.mask(cannyimg,1)
 
-            img = self.cornerHarris2(img)
+            img = self.cornerHarris(img)
             # cv2.putText(img, 'SIMPLE HARRIS', (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2,cv2.LINE_4)
 
             if self.counter2 < 5:            
                 self.x_points,self.y_points= self.ransac_method()
                 self.counter2 += 1                            
-            if self.counter2 == 5:
-                if self.counter2 %5 == 0:
+            if self.counter2 >= 5:
+                self.counter2 += 1
+                if self.counter2 % 5 == 0:
                     self.x_points,self.y_points= self.ransac_method()
                 # keep the points on the upper part of the img
                 if self.y_points[counter] < self.height*0.6: 
-                    cv2.line(self.cam_frame, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                    cv2.line(self.cam_frame, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)                
                     counter3 = 0
                 else: 
                     counter3 = counter3 + 1
-                    cv2.line(self.cam_frame, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
-                    cv2.line(self.cam_frame, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
+                    cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                    cv2.line(img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
+                    cv2.line(img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
             endD = time.time()
             
             cv2.imshow('t',self.cam_frame)
             cv2.waitKey(1)
+            
+            cv2.imshow('harris',img)
+            cv2.waitKey(1)
+            
+            endFlag = 130/speed
 
-            if endD-startD > 15:
+            if endD-startD > endFlag:
                 self.finished=True
