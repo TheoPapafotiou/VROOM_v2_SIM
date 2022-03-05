@@ -226,6 +226,7 @@ class Intersection2:
         startD = time.time()
 
         while self.finished is False:
+            counter += 1
 
             self.cam_frame = self.get_perc()['Camera']
             speed = self.get_perc()['Speed']
