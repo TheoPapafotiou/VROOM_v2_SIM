@@ -135,7 +135,7 @@ class AutonomousControlProcess():
 
                 if self.intersection_running:
                     self.lane_frame = self.intersection2.lane_frame_int
-                    # cv2.imshow('t',self.lane_frame)
+                    # cv2.imshow('corner', self.intersection2.img)
                     # cv2.waitKey(1)
                 else:
                     self.lane_frame = self.color_cam.cv_image

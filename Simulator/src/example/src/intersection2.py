@@ -11,8 +11,6 @@ class Intersection2:
         self.get_perc = get_perception 
         self.width = width
         self.height = height
-        self.right = []
-        self.left = []
         self.x_points = []
         self.y_points = []
         self.white = (255,255,255)
@@ -20,8 +18,10 @@ class Intersection2:
         self.data = []
         self.finished = False  
         self.reached= False
-        self.framecount = 0
-        self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
+        self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8) 
+        # self.img = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
+        self.lastx = 0
+        self.lasty = 0
         self.increase_angle = False
         #image processing parameters
         self.ThresholdHigh = 150
@@ -44,7 +44,7 @@ class Intersection2:
         # for the straight 
         if case == "Straight":
             polygons=np.array([
-                [(int(self.width*0.4),int(self.height/3.5)),(int(self.width/3),int(self.height*0.45)),(int(self.width*0.5),int(self.height*0.45)),(int(self.width*0.5),int(self.height/3.5))]
+                [(int(self.width*0.35),int(self.height/3.5)),(int(self.width/3),int(self.height*0.45)),(int(self.width*0.5),int(self.height*0.45)),(int(self.width*0.5),int(self.height/3.5))]
                 ])
 
         # for the small right turn 
@@ -173,7 +173,8 @@ class Intersection2:
                 center, radius, start_angle, end_angle = self.convert_arc(point1, point2, sagitta)
                 
                 axes = (radius, radius)
-                self.draw_ellipse(self.cam_frame, center, axes, 0, start_angle, end_angle, 255)
+                self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
+                self.draw_ellipse(self.lane_frame_int, center, axes, 0, start_angle, end_angle, 255)
             
                 # print('yaw init',yaw_init)
                 # print('perc', self.get_perc()['Yaw'])
@@ -182,8 +183,8 @@ class Intersection2:
             time.sleep(0.1)
 
     def ransac_method(self):
-
-        self.data = np.column_stack([self.x_points,self.y_points])
+        ranges=int(len(self.x_points)/2)
+        self.data = np.column_stack([self.x_points[-ranges:],self.y_points[-ranges:]])
 
         model = LineModelND()
         min_sample = 4
@@ -191,16 +192,15 @@ class Intersection2:
         if len(self.data) > min_sample:
             model.estimate(self.data)
             model_robust, inliers = ransac(self.data, LineModelND, min_sample,
-                                    residual_threshold=2, max_trials=1000)
-            outliers = inliers == False 
-            line_x = self.x_points
-            line_y = model.predict_y(line_x)
+                                    residual_threshold=2, max_trials=300)
+            inliers == False 
+            line_x = self.x_points[-ranges:]
             line_y_robust = list(model_robust.predict_y(line_x))
 
             return line_x, line_y_robust
         
         else:
-            return self.x_points,self.y_points
+            return self.x_points, self.y_points
 
     def cornerHarris(self,img):
 
@@ -218,49 +218,53 @@ class Intersection2:
                 self.x_points.append(x)
                 self.y_points.append(y)
 
-        return img     
-
     def straight(self):
         counter = 0
         counter3 = 0
         startD = time.time()
-
+        self.counter2 = 0
         while self.finished is False:
+            startC=time.time()
             counter += 1
-
             self.cam_frame = self.get_perc()['Camera']
             speed = self.get_perc()['Speed']
             
             cannyimg = self.canny(self.cam_frame)
-            maskimg = self.mask(cannyimg,case="Straight")
-            img = self.cornerHarris(maskimg)
-          
-            # cv2.putText(img, 'SIMPLE HARRIS', (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2,cv2.LINE_4)
+            maskimg = self.mask(cannyimg, case="Straight")
 
+            self.cornerHarris(maskimg)
             # if self.counter2 < 3:            
             #     self.x_points,self.y_points = self.ransac_method()
-            #     self.counter2 += 1                            
-            if self.counter2 >= 0:
-                self.counter2 += 1
-                if self.counter2 % 5 == 0:
-                    self.counter2 = 0
-                    self.x_points,self.y_points= self.ransac_method()
-                # keep the points on the upper part of the img
-                if self.y_points[counter] < self.height*0.6: 
-                    cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                    cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                    cv2.line(img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                    cv2.line(img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)                
-                    counter3 = 0
-                else: 
-                    counter3 = counter3 + 1
-                    cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                    cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                    cv2.line(img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
-                    cv2.line(img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
-            endD = time.time()
-            
-            endFlag = 140/speed
+            #     self.counter2 += 1    
+            # else:
+            #     continue                        
+        
+            self.counter2 += 1
+            if self.counter2 % 7 == 4:
+                self.counter2 = 0
+                self.x_points,self.y_points= self.ransac_method()                
 
+            if self.y_points[-1] < self.height*0.6: 
+                self.lane_frame_int = self.cam_frame
+                cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int((self.x_points[-1]+ self.lastx)/2), int((self.y_points[-1]+ self.lasty)/2)), self.white, 14)
+                cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-(self.x_points[-1]+ self.lastx)/2), int((self.y_points[-1]+self.lasty)/2)), self.white, 14)
+                # cv2.line(self.img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                # cv2.line(self.img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)                
+                counter3 = 2
+                self.lastx = self.x_points[-1]
+                self.lasty = self.y_points[-1]
+            else: 
+                print('hhhhhhhhhhhhhhhhhhhhhhhhh')
+                self.lane_frame_int = self.cam_frame
+                cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int(self.x_points[-counter3]), int(self.y_points[-counter3])), self.white, 14)
+                cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[-counter3]), int(self.y_points[-counter3])), self.white, 14)
+                # cv2.line(self.img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
+                # cv2.line(self.img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter-counter3]), int(self.y_points[counter-counter3])), self.white, 14)
+                counter3 = counter3 + 1
+
+            endD = time.time()
+            endC=time.time()
+            endFlag = 150/speed
+            print('duration', endC-startC)
             if endD-startD > endFlag:
                 self.finished=True
