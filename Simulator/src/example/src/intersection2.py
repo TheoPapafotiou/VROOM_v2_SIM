@@ -19,7 +19,7 @@ class Intersection2:
         self.finished = False  
         self.reached= False
         self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8) 
-        # self.img = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
+        self.img = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
         self.lastx = 0
         self.lasty = 0
         self.increase_angle = False
@@ -184,7 +184,7 @@ class Intersection2:
 
     def ransac_method(self):
         ranges=int(len(self.x_points)/2)
-        self.data = np.column_stack([self.x_points[-ranges:],self.y_points[-ranges:]])
+        self.data = np.column_stack([self.x_points,self.y_points])
 
         model = LineModelND()
         min_sample = 4
@@ -192,9 +192,9 @@ class Intersection2:
         if len(self.data) > min_sample:
             model.estimate(self.data)
             model_robust, inliers = ransac(self.data, LineModelND, min_sample,
-                                    residual_threshold=2, max_trials=300)
+                                    residual_threshold=2, max_trials=500)
             inliers == False 
-            line_x = self.x_points[-ranges:]
+            line_x = self.x_points
             line_y_robust = list(model_robust.predict_y(line_x))
 
             return line_x, line_y_robust
@@ -217,6 +217,7 @@ class Intersection2:
                 
                 self.x_points.append(x)
                 self.y_points.append(y)
+        return img
 
     def straight(self):
         counter = 0
@@ -232,7 +233,7 @@ class Intersection2:
             cannyimg = self.canny(self.cam_frame)
             maskimg = self.mask(cannyimg, case="Straight")
 
-            self.cornerHarris(maskimg)
+            self.img=self.cornerHarris(maskimg)
             # if self.counter2 < 3:            
             #     self.x_points,self.y_points = self.ransac_method()
             #     self.counter2 += 1    
@@ -246,10 +247,10 @@ class Intersection2:
 
             if self.y_points[-1] < self.height*0.6: 
                 self.lane_frame_int = self.cam_frame
-                cv2.line(self.lane_frame_int, (int(self.width*0.1), int(self.height)),(int((self.x_points[-1]+ self.lastx)/2), int((self.y_points[-1]+ self.lasty)/2)), self.white, 14)
-                cv2.line(self.lane_frame_int, (int(self.width*0.9), int(self.height)),(int(self.width-(self.x_points[-1]+ self.lastx)/2), int((self.y_points[-1]+self.lasty)/2)), self.white, 14)
-                # cv2.line(self.img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                # cv2.line(self.img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)                
+                cv2.line(self.lane_frame_int, (0, int(self.height)),(int(self.x_points[-1]), int(self.y_points[-1])), self.white, 14)
+                cv2.line(self.lane_frame_int, (self.width, int(self.height)),(int(self.width-self.x_points[-1]), int(self.y_points[-1])), self.white, 14)
+                cv2.line(self.img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
+                cv2.line(self.img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)                
                 counter3 = 2
                 self.lastx = self.x_points[-1]
                 self.lasty = self.y_points[-1]
