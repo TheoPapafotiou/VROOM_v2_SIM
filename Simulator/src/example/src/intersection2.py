@@ -25,7 +25,7 @@ class Intersection2:
         self.yaw_diff = 0
         self.increase_angle = False
         self.yaw_angle = False
-
+        self.yaw_diff = 0
         #image processing parameters
         self.ThresholdHigh = 150
         self.ThresholdLow = 350
@@ -208,13 +208,14 @@ class Intersection2:
 
     def big_left_turn(self, yaw_init):
         lane_keeping_threshold = 20
-        increasing_angle_threshold = [65, 85]
+        increasing_angle_threshold = [65, 95]
+        self.yaw_diff = np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])
 
         while self.finished is False:
             absolute_yaw_diff = np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw']))
-
+          
             if (absolute_yaw_diff > lane_keeping_threshold) or (self.reached is True ):
-                if (increasing_angle_threshold[0] < absolute_yaw_diff < increasing_angle_threshold[1]):
+                if (increasing_angle_threshold[0] < absolute_yaw_diff  < increasing_angle_threshold[1]):
                     self.finished = True
                     self.increase_angle = False
                 else :
@@ -223,7 +224,7 @@ class Intersection2:
                     self.reached = True
 
             if not self.reached:      
-                print('abs yaw', absolute_yaw_diff)
+                # print('abs yaw', absolute_yaw_diff)
 
                 self.cam_frame=self.get_perc()['Camera']
                 cannyimg = self.canny(self.cam_frame)

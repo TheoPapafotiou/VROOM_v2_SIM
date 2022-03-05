@@ -98,8 +98,8 @@ class AutonomousControlProcess():
             self.intersection2.small_right_turn(yaw_init)
 
         elif self.intersection_type == "L":
-            yaw_init = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection2.big_left_turn(yaw_init)
+            self.yaw_init = self.absolute_yaw_init(self.IMU.yaw)
+            self.intersection2.big_left_turn(self.yaw_init)
             
         elif self.intersection_type == "S":
             yaw_init = self.absolute_yaw_init(self.IMU.yaw)
@@ -142,11 +142,12 @@ class AutonomousControlProcess():
                 cv2.waitKey(1)
                 # cv2.imshow('l',self.intersection2.img)
                 # cv2.waitKey(1)
-                
+                print('yaw diff', self.intersection2.yaw_diff/5)
                 if self.intersection2.increase_angle is False and self.intersection2.yaw_angle is False:
-                    self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame)
+                    self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame) - self.intersection2.yaw_diff/5
                 elif self.intersection2.increase_angle:
-                    self.angle -= 0.5
+                    
+                    self.angle -= 0.5 
                     # self.angle += 0.5
                 elif self.intersection2.yaw_angle:
                     self.angle = -self.intersection2.yaw_diff
