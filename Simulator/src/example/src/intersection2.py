@@ -22,7 +22,10 @@ class Intersection2:
         self.img = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
         self.lastx = 0
         self.lasty = 0
+        self.yaw_diff = 0
         self.increase_angle = False
+        self.yaw_angle = False
+
         #image processing parameters
         self.ThresholdHigh = 150
         self.ThresholdLow = 350
@@ -52,7 +55,11 @@ class Intersection2:
             polygons=np.array([
                 [(int(self.width/3), int(self.height*0.45)),(self.width,int(self.height*0.45)),(self.width,int(self.height*0.65)),(int(self.width/3),int(self.height*0.65))]
                 ])
-
+        #for the big left turn
+        elif case == "BigLeft":
+            polygons=np.array([
+                [(int(self.width/4), int(self.height*0.3)),(self.width*0.6,int(self.height*0.3)),(self.width*0.5,int(self.height*0.65)),(int(self.width/4),int(self.height*0.65))]
+                ])
         mask = np.zeros_like(image)
         cv2.fillPoly(mask, np.int32([polygons]), 255)
         masked = cv2.bitwise_and(image, mask)
@@ -182,6 +189,70 @@ class Intersection2:
              
             time.sleep(0.1)
 
+    def straight_yaw(self, yaw_init):
+        startD = time.time()
+        self.yaw_angle = True
+
+        while self.finished is False:
+            # startC=time.time()
+            speed = self.get_perc()['Speed']
+            self.yaw_diff = np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])
+            endD = time.time()
+            endFlag = 140/speed
+            # endC=time.time()
+            # print('duration', endC - startC)
+            if endD-startD > endFlag:
+                self.yaw_angle = False
+                self.finished = True
+
+
+    def big_left_turn(self, yaw_init):
+        lane_keeping_threshold = 20
+        increasing_angle_threshold = [65, 85]
+
+        while self.finished is False:
+            absolute_yaw_diff = np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw']))
+
+            if (absolute_yaw_diff > lane_keeping_threshold) or (self.reached is True ):
+                if (increasing_angle_threshold[0] < absolute_yaw_diff < increasing_angle_threshold[1]):
+                    self.finished = True
+                    self.increase_angle = False
+                else :
+                    print('====== GRADUALLY INCREASING ANGLE ======')
+                    self.increase_angle = True
+                    self.reached = True
+
+            if not self.reached:      
+                print('abs yaw', absolute_yaw_diff)
+
+                self.cam_frame=self.get_perc()['Camera']
+                cannyimg = self.canny(self.cam_frame)
+                maskedimg = self.mask(cannyimg, case="BigLeft")
+                self.img=self.cornerHarris(maskedimg)
+                # print('x', self.x_points)
+                point1 = (int(self.width*0.8),int(self.height))                
+                
+                a = min(self.x_points) 
+                index = self.x_points.index(a)
+                b = self.y_points[index]
+                point2 = (a+70,b)
+                sagitta = -30
+                center, radius, start_angle, end_angle = self.convert_arc(point1, point2, sagitta)
+                
+                axes = (radius, radius)
+                self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
+                self.draw_ellipse(self.lane_frame_int, center, axes, 0, start_angle, end_angle, 255)
+                self.x_points = []
+                self.y_points = []
+
+            time.sleep(0.1)
+            
+
+
+
+
+
+
     def ransac_method(self):
         ranges=int(len(self.x_points)/2)
         self.data = np.column_stack([self.x_points,self.y_points])
@@ -248,9 +319,9 @@ class Intersection2:
             if self.y_points[-1] < self.height*0.6: 
                 self.lane_frame_int = self.cam_frame
                 cv2.line(self.lane_frame_int, (0, int(self.height)),(int(self.x_points[-1]), int(self.y_points[-1])), self.white, 14)
-                cv2.line(self.lane_frame_int, (self.width, int(self.height)),(int(self.width-self.x_points[-1]), int(self.y_points[-1])), self.white, 14)
+                # cv2.line(self.lane_frame_int, (self.width, int(self.height)),(int(self.width-self.x_points[-1]), int(self.y_points[-1])), self.white, 14)
                 cv2.line(self.img, (int(self.width*0.1), int(self.height)),(int(self.x_points[counter]), int(self.y_points[counter])), self.white, 14)
-                cv2.line(self.img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[counter]), int(self.y_points[counter])), self.white, 14)                
+                cv2.line(self.img, (int(self.width*0.9), int(self.height)),(int(self.width-self.x_points[-1]), int(self.y_points[-1])), self.white, 14)                
                 counter3 = 2
                 self.lastx = self.x_points[-1]
                 self.lasty = self.y_points[-1]
@@ -265,7 +336,7 @@ class Intersection2:
 
             endD = time.time()
             endC=time.time()
-            endFlag = 150/speed
-            print('duration', endC-startC)
+            endFlag = 140/speed
+            # print('duration', endC-startC)
             if endD-startD > endFlag:
                 self.finished=True
