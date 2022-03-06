@@ -1,3 +1,4 @@
+from mimetypes import init
 import numpy as np
 import cv2 
 import time
@@ -37,6 +38,7 @@ class Intersection2:
         self.ymax = 0
         self.hmax = 0
 
+        self.angle_step = 1
     def canny(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         blur = cv2.GaussianBlur(gray, self.KSize, self.BorderType)
@@ -58,7 +60,7 @@ class Intersection2:
         #for the big left turn
         elif case == "BigLeft":
             polygons=np.array([
-                [(int(self.width/4), int(self.height*0.3)),(self.width*0.6,int(self.height*0.3)),(self.width*0.5,int(self.height*0.65)),(int(self.width/4),int(self.height*0.65))]
+                [(int(self.width/4), int(self.height*0.35)),(self.width*0.6,int(self.height*0.35)),(self.width*0.5,int(self.height*0.65)),(int(self.width/4),int(self.height*0.65))]
                 ])
         mask = np.zeros_like(image)
         cv2.fillPoly(mask, np.int32([polygons]), 255)
@@ -206,45 +208,64 @@ class Intersection2:
                 self.finished = True
 
 
-    def big_left_turn(self, yaw_init):
+    def big_left_turn(self, yaw_init, init_diff):
         lane_keeping_threshold = 20
         increasing_angle_threshold = [65, 95]
+
+        correction = True
         self.yaw_diff = np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])
 
         while self.finished is False:
+            
             absolute_yaw_diff = np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw']))
-          
             if (absolute_yaw_diff > lane_keeping_threshold) or (self.reached is True ):
                 if (increasing_angle_threshold[0] < absolute_yaw_diff  < increasing_angle_threshold[1]):
                     self.finished = True
                     self.increase_angle = False
                 else :
                     print('====== GRADUALLY INCREASING ANGLE ======')
+                    self.angle_step = -abs(self.angle_step)
                     self.increase_angle = True
                     self.reached = True
 
             if not self.reached:      
-                # print('abs yaw', absolute_yaw_diff)
-
-                self.cam_frame=self.get_perc()['Camera']
-                cannyimg = self.canny(self.cam_frame)
-                maskedimg = self.mask(cannyimg, case="BigLeft")
-                self.img=self.cornerHarris(maskedimg)
-                # print('x', self.x_points)
-                point1 = (int(self.width*0.8),int(self.height))                
+                print('abs yaw', absolute_yaw_diff)
+                if abs(absolute_yaw_diff) > 5.0 and correction is True:
+                    print("STRANGE MODEEE")
+                    if init_diff > 0.0:
+                        self.angle_step = -abs(self.angle_step)
+                    else:
+                        self.angle_step = abs(self.angle_step)
+                    self.increase_angle = True
                 
-                a = min(self.x_points) 
-                index = self.x_points.index(a)
-                b = self.y_points[index]
-                point2 = (a+70,b)
-                sagitta = -30
-                center, radius, start_angle, end_angle = self.convert_arc(point1, point2, sagitta)
-                
-                axes = (radius, radius)
-                self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
-                self.draw_ellipse(self.lane_frame_int, center, axes, 0, start_angle, end_angle, 255)
-                self.x_points = []
-                self.y_points = []
+                    
+                else:
+                    correction = False
+                    print("STARTING LANE")
+                    
+                    self.increase_angle = False
+                    self.cam_frame=self.get_perc()['Camera']
+                    cannyimg = self.canny(self.cam_frame)
+                    maskedimg = self.mask(cannyimg, case="BigLeft")
+                    self.img=self.cornerHarris(maskedimg)
+                    # print('x', self.x_points)
+                    point1 = (int(self.width*0.8),int(self.height))                
+                    
+                    a = min(self.x_points) 
+                    index = self.x_points.index(a)
+                    b = self.y_points[index]
+                    point2 = (a+70,b)
+                    # must change the point because lane keeping cannot racognize or turn the car right .. POURQOI 
+                    sagitta = -30
+                    center, radius, start_angle, end_angle = self.convert_arc(point1, point2, sagitta)
+                    
+                    axes = (radius, radius)
+                    self.lane_frame_int = np.zeros((self.height, self.width, 3), dtype = np.uint8)  
+                    self.draw_ellipse(self.lane_frame_int, center, axes, 0, start_angle, end_angle, 255)
+                    self.draw_ellipse(self.img, center, axes, 0, start_angle, end_angle, 255)
+                    
+                    self.x_points = []
+                    self.y_points = []
 
             time.sleep(0.1)
             
