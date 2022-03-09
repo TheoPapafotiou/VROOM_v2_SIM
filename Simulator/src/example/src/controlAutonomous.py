@@ -13,7 +13,6 @@ from gps                import GPSHandler
 from imu                import IMUHandler
 from LaneKeepingFinal   import LaneKeeping
 from intersection       import Intersection
-from intersection2      import Intersection2
 import rospy
 
 class AutonomousControlProcess():
@@ -55,7 +54,7 @@ class AutonomousControlProcess():
         self.intersection_running = False
         self.perception_dict = {}
         # self.intersection= Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
-        self.intersection2= Intersection2(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
+        self.intersection = Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
 
     # ===================================== RUN ==========================================
     def run(self):
@@ -94,24 +93,22 @@ class AutonomousControlProcess():
 
         return self.perception_dict
 
-
     def _run_intersection(self):
 
         if self.intersection_type == "R":
             yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection2.small_right_turn(yaw_init)
+            self.intersection.small_right_turn(yaw_init)
 
         elif self.intersection_type == "L":
             self.yaw_init, init_diff = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection2.big_left_turn(self.yaw_init, init_diff)
+            self.intersection.big_left_turn(self.yaw_init, init_diff)
             
         elif self.intersection_type == "S":
             yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection2.straight_yaw(yaw_init)
+            self.intersection.straight_yaw(yaw_init)
 
         print("Intersection finished!")
         self.intersection_running = False
-        # self.speed=0
 
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
@@ -125,12 +122,12 @@ class AutonomousControlProcess():
             while self.reset is False:
                 print('NEW FRAME:')
                 
-                self.perception_dict['Yaw'] = self.IMU.yaw # MUST BE [-180, 180]
+                self.perception_dict['Yaw'] = self.IMU.yaw 
                 self.perception_dict['Camera'] = self.color_cam.cv_image
                 self.perception_dict['Speed'] = self.speed
                
                 if self.intersection_running is False and count==0:  
-                    self.intersection_type = "L"
+                    self.intersection_type = "R"
                     self.intersectionThread.start()
                     self.intersection_running = True
                     self.start_yaw = self.perception_dict['Yaw']
@@ -138,26 +135,23 @@ class AutonomousControlProcess():
                     count=1
 
                 if self.intersection_running:
-                    self.lane_frame = self.intersection2.lane_frame_int
+                    self.lane_frame = self.intersection.lane_frame_int
                 else:
                     self.lane_frame = self.color_cam.cv_image
 
-                # cv2.imshow("Preview", self.lane_frame) 
-                # cv2.waitKey(1)
-                cv2.imshow('l',self.intersection2.img)
+                cv2.imshow("Preview", self.lane_frame) 
                 cv2.waitKey(1)
-                print('yaw diff', self.intersection2.yaw_diff/5)
-                if self.intersection2.increase_angle is False and self.intersection2.yaw_angle is False:
-                    self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame) - self.intersection2.yaw_diff/5
-                elif self.intersection2.increase_angle:
-                    self.angle += self.intersection2.angle_step
-                    # self.angle -= 0.5 
-                    # self.angle += 0.5
-                elif self.intersection2.yaw_angle:
-                    self.angle = -self.intersection2.yaw_diff
+                
+                if self.intersection.increase_angle is False and self.intersection.yaw_angle is False and self.intersection.decrease_angle is False:
+                    self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame) - self.intersection.yaw_diff/5
+                elif self.intersection.decrease_angle:
+                    self.angle += self.intersection.angle_step
+                elif self.intersection.increase_angle: 
+                    self.angle += 0.5
+                elif self.intersection.yaw_angle:
+                    self.angle = -self.intersection.yaw_diff
                     self.last_angle = self.angle
                     self.angle = (self.angle + self.last_angle)/2
-                    print('angle', self.angle)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
