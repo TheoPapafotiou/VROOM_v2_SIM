@@ -3,6 +3,7 @@
 import json
 import cv2
 import time
+from matplotlib.pyplot import axis
 import numpy as np
 
 from ranging_sensors    import RangeHandler
@@ -45,7 +46,9 @@ class AutonomousControlProcess():
         self.IMU = IMUHandler()
 
         #for lane keeping
-        # self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))        
+        # self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))
+        self.width = 640
+        self.height = 480        
         self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
         
         #for intersection 
@@ -54,7 +57,6 @@ class AutonomousControlProcess():
         self.intersection_running = False
         self.perception_dict = {}
         # self.intersection= Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
-        self.intersection = Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
 
     # ===================================== RUN ==========================================
     def run(self):
@@ -68,8 +70,6 @@ class AutonomousControlProcess():
 
         self.angleThread = Thread(name='AngleFunction', target=self._command_angle, daemon=True)
         self.angleThread.start()
-
-        self.intersectionThread = Thread(name='IntersectionFunction', target=self._run_intersection, daemon=True)
 
         rospy.spin()
         print("Threads closed")
@@ -93,65 +93,61 @@ class AutonomousControlProcess():
 
         return self.perception_dict
 
-    def _run_intersection(self):
-
-        if self.intersection_type == "R":
-            yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.small_right_turn(yaw_init)
-
-        elif self.intersection_type == "L":
-            self.yaw_init, init_diff = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.big_left_turn(self.yaw_init, init_diff)
-            
-        elif self.intersection_type == "S":
-            yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
-            self.intersection.straight_yaw(yaw_init)
-
-        print("Intersection finished!")
-        self.intersection_running = False
-
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
         
         time.sleep(1)
-        self.speed = 15
+        self.speed = 0
         self.angle = 0
-        count=0
+        self.speed = 10
+        counter = 0
+        yaw_init = 0
+        self.case = -1
+        margin = 5
 
         try:
             while self.reset is False:
-                print('NEW FRAME:')
                 
-                self.perception_dict['Yaw'] = self.IMU.yaw 
+                yaw = round(self.IMU.yaw)
+                if counter == 0:
+                    yaw_init = yaw
+
+                self.perception_dict['Yaw'] = yaw 
                 self.perception_dict['Camera'] = self.color_cam.cv_image
                 self.perception_dict['Speed'] = self.speed
                
-                if self.intersection_running is False and count==0:  
-                    self.intersection_type = "R"
-                    self.intersectionThread.start()
-                    self.intersection_running = True
-                    self.start_yaw = self.perception_dict['Yaw']
-                    self.cam_input = self.perception_dict['Camera']
-                    count=1
+                ### ROUNDABOUT
+                diff = abs(abs(yaw) - abs(yaw_init))
+                if -margin < diff < margin and self.case == -1:
+                    self.case = 0
+                elif 20 - margin < diff < 20 + margin and self.case == 0:
+                    self.case = 1
+                elif -margin < diff < margin and self.case == 1:
+                    self.case = 2
 
-                if self.intersection_running:
-                    self.lane_frame = self.intersection.lane_frame_int
-                else:
-                    self.lane_frame = self.color_cam.cv_image
-
-                cv2.imshow("Preview", self.lane_frame) 
-                cv2.waitKey(1)
+                lane_frame = self.mask_frame(self.color_cam.cv_image, case=0)
                 
-                if self.intersection.increase_angle is False and self.intersection.yaw_angle is False and self.intersection.decrease_angle is False:
-                    self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame) - self.intersection.yaw_diff/5
-                elif self.intersection.decrease_angle:
-                    self.angle += self.intersection.angle_step
-                elif self.intersection.increase_angle: 
-                    self.angle += 0.5
-                elif self.intersection.yaw_angle:
-                    self.angle = -self.intersection.yaw_diff
-                    self.last_angle = self.angle
-                    self.angle = (self.angle + self.last_angle)/2
+                wT, hT1, hT2 =  0.1 * self.width, 0.6 * self.height, 0.5 * self.height
+                wB, hB1, hB2 = 0.0 * self.width, 0.8 * self.height, 0.6 * self.height
+        
+                src_points = {
+                    '0' : np.float32([[wT, hT1], [self.width - wT, hT1], [wB, hB1], [self.width - wB, hB1]]),
+                    '1' : np.float32([[wT, hT2], [self.width - wT, hT2], [wB, hB2], [self.width - wB, hB2]])
+                }
+
+                # self.lane_frame = self.color_cam.cv_image
+                self.angle, lk_frame1, lk_frame2 = self.Lanekeep.lane_keeping_pipeline(lane_frame)
+                
+                warp = self.warp_image(lane_frame, src_points['0'])
+                cv2.imwrite('frames/warp_'+str(counter)+'.jpg', warp)
+
+                # cv2.imwrite('Upper_cam_20_03.jpg', self.lane_frame)
+                show_frame = np.concatenate([lane_frame, warp], axis=1)
+                
+                counter += 1
+                cv2.imwrite('frames/Frame_'+str(counter)+'_'+str(yaw)+'.jpg', lane_frame)
+                cv2.imshow("Preview", show_frame) 
+                cv2.waitKey(1)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
@@ -162,6 +158,37 @@ class AutonomousControlProcess():
         
         except Exception as e:
             print(e)
+
+
+    def warp_image(self, frame, src_points):
+
+        # Destination points for warping
+        dst_points = np.float32([[0, 0], [self.width, 0], [0, self.height], [self.width, self.height]])
+        
+        # Warp frame
+        self.warp_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+        warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
+
+        return warped_frame
+
+    def mask_frame(self, image, case):
+        if case == 1:
+            polygons = np.array([
+                [(0, 0), (0, int(self.height)), (int(self.width*0.7), int(self.height)), (int(self.width*0.7), 0)]
+                ])
+
+        elif case == 2:  
+            polygons = np.array([
+                [(0, 0), (0, int(self.height)), (self.width, int(self.height)), (int(self.width*0.6), 0)]
+                ])
+        elif case == 0:
+            return image
+
+        mask = np.zeros_like(image)
+        cv2.fillPoly(mask, np.int32([polygons]), 255)
+        masked = cv2.bitwise_and(image, mask)
+
+        return masked
                  
     # ===================================== SEND COMMAND =================================
     def _command_speed(self):
