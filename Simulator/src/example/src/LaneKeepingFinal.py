@@ -470,11 +470,10 @@ class LaneKeeping:
         self.last_angle = self.angle
         self.last_time = time.time()
         
-    def lane_keeping_pipeline(self, frame, case):
+    def lane_keeping_pipeline(self, frame):
 
         try:
             angles = [0 for i in range(2)]
-            self.case = case
             for repeat in range(1):
                 if self.version == 1:
                     edged, thresholded = self.image_preprocessing(frame, self.src_points[str(repeat)], threshold=1, warp=1)

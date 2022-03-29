@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import json
+import traceback
 import cv2
 import time
-from matplotlib.pyplot import axis
 import numpy as np
 
 from ranging_sensors    import RangeHandler
@@ -14,6 +14,7 @@ from gps                import GPSHandler
 from imu                import IMUHandler
 from LaneKeepingFinal   import LaneKeeping
 from intersection       import Intersection
+from roundabout         import Roundabout
 import rospy
 
 class AutonomousControlProcess():
@@ -50,7 +51,9 @@ class AutonomousControlProcess():
         self.width = 640
         self.height = 480        
         self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
-        
+        self.round = Roundabout(self._get_perception_results)
+        self.roundabout_running = False
+
         #for intersection 
         self.yaw_init = 0.0
         self.intersection_type = "None"
@@ -70,6 +73,8 @@ class AutonomousControlProcess():
 
         self.angleThread = Thread(name='AngleFunction', target=self._command_angle, daemon=True)
         self.angleThread.start()
+
+        self.roundThread = Thread(name='RoundaboutNavigation', target=self._round_nav, daemon=True)
 
         rospy.spin()
         print("Threads closed")
@@ -93,44 +98,65 @@ class AutonomousControlProcess():
 
         return self.perception_dict
 
+    def _round_nav(self):
+
+        self.round.roundabout_procedure()
+        self.roundabout_running = False
+        print('Roundabout finished!')
+
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
         
-        time.sleep(1)
+        time.sleep(4)
+        print('START!')
         self.speed = 0
         self.angle = 0
         self.speed = 10
         counter = 0
         yaw_init = 0
         self.case = -1
-        margin = 5
+
+        roundabout_detected = True
+        roundabout_timer = time.time()
+        #instead of Horizontal line for now
 
         try:
             while self.reset is False:
                 
                 yaw = round(self.IMU.yaw)
-                if counter == 0:
-                    yaw_init = yaw
+
+                lane_frame = self.color_cam.cv_image
 
                 self.perception_dict['Yaw'] = yaw 
                 self.perception_dict['Camera'] = self.color_cam.cv_image
                 self.perception_dict['Speed'] = self.speed
+                self.perception_dict['HorLine'] = {
+                    'Distance' : float('inf')
+                } 
+                self.perception_dict['LKangle'], lk_frame1 = self.Lanekeep.lane_keeping_pipeline(lane_frame)
                 
-                # ### ROUNDABOUT
-                # diff = abs(abs(yaw) - abs(yaw_init))
-                # if -margin < diff < margin and self.case == -1:
-                #     self.case = 0
-                # elif 20 - margin < diff < 20 + margin and self.case == 0:
-                #     self.case = 1
-                # elif -margin < diff < margin and self.case == 1:
-                #     self.case = 2
-                
-                lane_frame = self.color_cam.cv_image
-                self.angle, lk_frame1 = self.Lanekeep.lane_keeping_pipeline(lane_frame, self.case)
+                ### ROUNDABOUT
+
+                if roundabout_detected == True and time.time() - roundabout_timer > 2:
+                    
+                    self.perception_dict['HorLine']['Distance'] = 300
+                    self.roundThread.start()
+                    roundabout_detected = False
+                    self.roundabout_running = True
+
+                if self.roundabout_running:
+                    self.angle = self.round.get_angle()
+                else:
+                    self.angle = self.perception_dict['LKangle']
+
+                    if self.round.finished:
+                        print("Time to die [Roundabout]")
+                        self.roundThread.join()
+                        self.round.finished = False
                 # show_frame = np.concatenate([lane_frame, cv2.cvtColor(lk_frame2, cv2.COLOR_GRAY2RGB)], axis=1)
                 
                 counter += 1
-                cv2.imshow("Preview", lk_frame1) 
+                cv2.imshow("Preview", lane_frame) 
                 cv2.waitKey(1)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -142,6 +168,7 @@ class AutonomousControlProcess():
         
         except Exception as e:
             print(e)
+            traceback.print_exc()
 
 
     def warp_image(self, frame, src_points):
