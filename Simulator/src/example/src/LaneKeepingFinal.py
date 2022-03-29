@@ -1,3 +1,4 @@
+import traceback
 import cv2
 import numpy as np
 import math
@@ -14,8 +15,8 @@ class LaneKeeping:
         self.version = version
         self.width = width
         self.height = height
-        wT, hT1, hT2 =  0.1 * self.width, 0.6 * self.height, 0.5 * self.height
-        wB, hB1, hB2 = 0.0 * self.width, 0.8 * self.height, 0.6 * self.height
+        wT, hT1, hT2 =  0.1 * self.width, 0.7 * self.height, 0.5 * self.height
+        wB, hB1, hB2 = 0.0 * self.width, 0.9 * self.height, 0.6 * self.height
         self.src_points = {
             '0' : np.float32([[wT, hT1], [width - wT, hT1], [wB, hB1], [width - wB, hB1]]),
             '1' : np.float32([[wT, hT2], [width - wT, hT2], [wB, hB2], [width - wB, hB2]])
@@ -31,7 +32,7 @@ class LaneKeeping:
 
         # Rolling average parameters
         self.median_matrix = list()
-        self.median_constant = 2
+        self.median_constant = 4
 
         #HoughLines parameters 
         self.rho = 1  # distance precision in pixel, i.e. 1 pixel
@@ -59,11 +60,41 @@ class LaneKeeping:
         # Lanes parameters
         self.left_factor = 1
         self.right_factor = 1
-        self.margin = 20            # Width of the windows +/- margin
-        self.windows_number = 12    # Number of sliding windows (to scan the whole image)
-        self.minpix = 10            # Min number of pixels needed to recenter the window
-        self.min_lane_pts = 500     # Min number of eligible pixels needed to encountered as a lane line
+        self.windows_number = 12                                            # Number of sliding windows (to scan the whole image)
+        self.window_width = 60                                              # Width of the windows (maybe dynamic??)
+        self.window_height = int(self.height / float(self.windows_number))  # Window Height
+        self.minpix = 10                                                    # Min number of pixels needed to recenter the window
+        self.min_lane_pts = 500                                             # Min number of eligible pixels needed to encountered as a lane line
         self.edge_case_thres = self.width // 5
+        margin_x = 150
+        self.setBestRight = self.width/2 + margin_x
+        self.setBestLeft = self.width/2 - margin_x
+
+        self.case = -1
+
+    def mask_frame(self, image, case):
+        if case == 1:
+            polygons = np.array([
+                [(0, 0), (0, int(self.height)), (int(self.width*0.7), int(self.height)), (int(self.width*0.7), 0)]
+                ])
+            return image
+        elif case == 2:  
+            polygons = np.array([
+                [(0, 0), (0, int(self.height)), (self.width, int(self.height)), (int(self.width*0.6), 0)]
+                ])
+            return image
+        elif case == 0:
+            return image
+        else:
+            return image
+
+        # mask = np.zeros_like(image)
+        # cv2.fillPoly(mask, np.int32([polygons]), 255)
+        # masked = cv2.bitwise_and(image, mask)
+        # masked = np.zeros_like(image)
+        # masked[0:int(self.width*0.7), 0:int(self.height), :] = image[0:int(self.width*0.7), 0:int(self.height), :]
+
+        return masked
         
     def warp_image(self, frame, src_points):
 
@@ -74,7 +105,10 @@ class LaneKeeping:
         self.warp_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
         warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
 
-        return warped_frame
+        masked = warped_frame#self.mask_frame(warped_frame, self.case)
+        # masked = cv2.cvtColor(masked, cv2.COLOR_BGR2RGB)
+
+        return masked
 
     def make_lanes(self, lines, frame):
         out = np.dstack((frame, frame, frame)) * 255
@@ -125,11 +159,12 @@ class LaneKeeping:
         ## === Compute peaks in the two frame halves, to get an idea of lane start positions ===
         histogram = None
 
-        cutoffs = [int(self.height / 2.0), 0]
+        # cutoffs = [int(self.height / 2.0), 0]
+        cutoffs = [0, 0]
         out = np.dstack((frame, frame, frame)) * 255
 
         for cutoff in cutoffs:
-            histogram = np.sum(frame[cutoff:, :], axis=0)
+            histogram = np.sum(frame[cutoff:, :], axis=0) #!!! maybe in upper half only the second time !!!
 
             if histogram.max() > 0:
                 break
@@ -141,7 +176,8 @@ class LaneKeeping:
         midpoint = np.int(self.width / 2.0)
 
         left_mid = int(midpoint * self.left_factor)
-        max_left = np.argmax(histogram[:left_mid])
+        hist_left = histogram[:left_mid]
+        max_left = np.argmax(hist_left)
 
         right_mid = int(midpoint * self.right_factor)
         hist_right = histogram[right_mid:]
@@ -164,31 +200,28 @@ class LaneKeeping:
         left_lane_inds = []
         right_lane_inds = []
 
-        window_height = int(self.height / float(self.windows_number)) # Window Height
-
         for window in range(self.windows_number):
             # Find window boundaries in x and y axis
-            win_y_low = self.height - (1 + window) * window_height
-            win_y_high = self.height - window * window_height
+            win_y_low = self.height - (1 + window) * self.window_height
+            win_y_high = self.height - window * self.window_height
 
             ## ====== LEFT ======
-            win_xleft_low = leftx_current - self.margin
-            win_xleft_high = leftx_current + self.margin
+            win_xleft_low = leftx_current - self.window_width/2
+            win_xleft_high = leftx_current + self.window_width/2
 
             # Draw windows for visualisation
-            cv2.rectangle(out, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), \
-                            (0, 0, 255), 2)
+            # print((win_xleft_low, win_y_low), (win_xleft_high, win_y_high))
+            # cv2.rectangle(out, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 0, 255), 2)
 
             good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy <= win_y_high)
                                 & (nonzerox >= win_xleft_low) & (nonzerox <= win_xleft_high)).nonzero()[0]
             left_lane_inds.append(good_left_inds)
 
             ## ====== RIGHT ======
-            win_xright_low = rightx_current - self.margin
-            win_xright_high = rightx_current + self.margin
+            win_xright_low = rightx_current - self.window_width/2
+            win_xright_high = rightx_current + self.window_width/2
 
-            cv2.rectangle(out, (win_xright_low, win_y_low), (win_xright_high, win_y_high), \
-                            (0, 255, 0), 2)
+            # cv2.rectangle(out, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
 
             # Identify the nonzero pixels in x and y within the window
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy <= win_y_high)
@@ -226,6 +259,8 @@ class LaneKeeping:
         left_fit, right_fit = None, None
 
         # Fit a 2nd order polynomial for each lane line pixels
+        print('LenLeft: ', len(leftx))
+        print('LenRight: ', len(rightx))
         if len(leftx) >= self.min_lane_pts:  # and histogram[leftx_base] != 0:
             left_fit = np.polyfit(lefty, leftx, 2)
 
@@ -242,34 +277,57 @@ class LaneKeeping:
 
         plot_y = np.linspace(0, self.height - 1, self.height)
 
-        if polynomial == 2:
-            plot_xleft = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
-            plot_xright = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
-        else:
-            plot_xleft = left_fit[0][0] * plot_y + left_fit[0][1]
-            plot_xright = right_fit[0][0] * plot_y + right_fit[0][1]
-        plot_yright = plot_y
-        plot_yleft = plot_y
+        if left_fit is not None and right_fit is not None:
+            if polynomial == 2:
+                plot_xleft = left_fit[0] * plot_y ** 2 + left_fit[1] * plot_y + left_fit[2]
+                plot_xright = right_fit[0] * plot_y ** 2 + right_fit[1] * plot_y + right_fit[2]
+            else:
+                plot_xleft = left_fit[0][0] * plot_y + left_fit[0][1]
+                plot_xright = right_fit[0][0] * plot_y + right_fit[0][1]
+            plot_yright = plot_y
+            plot_yleft = plot_y
 
-        return plot_xleft.astype(np.int), plot_yleft.astype(np.int), \
-                    plot_xright.astype(np.int), plot_yright.astype(np.int)
+            return plot_xleft.astype(np.int), plot_yleft.astype(np.int), \
+                        plot_xright.astype(np.int), plot_yright.astype(np.int)
 
     def get_error(self, left_x, right_x):
 
         factor = int(round(0.5 * self.height))
 
-        sample_right_x = right_x[factor:]
-        sample_left_x = left_x[factor:]
+        if left_x is not None and right_x is not None:
+            sample_right_x = right_x[factor:]
+            sample_left_x = left_x[factor:]
 
-        sample_x = np.array((sample_right_x + sample_left_x) / 2.0)
-        if len(sample_x) != 0:
-            weighted_mean = self.weighted_average(sample_x)
+            sample_x = np.array((sample_right_x + sample_left_x) / 2.0)
+            if len(sample_x) != 0:
+                weighted_mean = self.weighted_average(sample_x)
 
-        center = int(self.width / 2.0)
-        error = weighted_mean - center
-        setpoint = weighted_mean
+            center = int(self.width / 2.0)
+            error = weighted_mean - center
 
-        return error, setpoint
+        elif left_x is None:
+            x1 = right_x[0] * self.height ** 2 + right_x[1] * self.height + right_x[2]
+            x2 = right_x[2]
+            error_init = x2 - x1
+
+            diff = (x1+x2)/2 - self.setBestRight
+            error = x2 - x1 + diff
+
+            print('Before Right: ', 90 - math.degrees(math.atan2(self.height, error_init)))
+            print('After Right: ', 90 - math.degrees(math.atan2(self.height, error)), 'Diff: ', diff)
+
+        elif right_x is None:
+            x1 = left_x[0] * self.height ** 2 + left_x[1] * self.height + left_x[2]
+            x2 = left_x[2]
+            error_init = x2 - x1
+            
+            diff = (x1+x2)/2 - self.setBestLeft
+            error = x2 - x1 + diff
+            
+            print('Before Left: ', 90 - math.degrees(math.atan2(self.height, error_init)))
+            print('After Left: ', 90 - math.degrees(math.atan2(self.height, error)), 'Diff: ', diff)
+
+        return error
 
     def weighted_average(self, num_list):
 
@@ -334,30 +392,20 @@ class LaneKeeping:
 
                 left_x, left_y, right_x, right_y = self.get_poly_points(left, right, polynomial=2)
 
-                error, setpoint = self.get_error(left_x, right_x)
-
+                error = self.get_error(left_x, right_x)
                 angle = 90 - math.degrees(math.atan2(self.height, error))
 
             elif right is None and left is not None:
                 # print("LEFT LANE")
 
-                x1 = left[0] * self.height ** 2 + left[1] * self.height + left[2]
-                x2 = left[2]
-
-                dx = x2 - x1
-                dy = self.height
-
-                angle = 90 - math.degrees(math.atan2(dy, dx))
+                error = self.get_error(left, None)
+                angle = 90 - math.degrees(math.atan2(self.height, error))
 
             elif left is None and right is not None:
                 # print("RIGHT LANE")
-                x1 = right[0] * self.height ** 2 + right[1] * self.height + right[2]
-                x2 = right[2]
 
-                dx = x2 - x1
-                dy = self.height
-
-                angle = 90 - math.degrees(math.atan2(dy, dx))
+                error = self.get_error(None, right)
+                angle = 90 - math.degrees(math.atan2(self.height, error))
 
             else:
                 angle = self.angle
@@ -422,11 +470,12 @@ class LaneKeeping:
         self.last_angle = self.angle
         self.last_time = time.time()
         
-    def lane_keeping_pipeline(self, frame):
+    def lane_keeping_pipeline(self, frame, case):
 
         try:
             angles = [0 for i in range(2)]
-            for repeat in range(2):
+            self.case = case
+            for repeat in range(1):
                 if self.version == 1:
                     edged, thresholded = self.image_preprocessing(frame, self.src_points[str(repeat)], threshold=1, warp=1)
                     left, right, edged = self.lane_detection(edged, thresholded)
@@ -438,12 +487,12 @@ class LaneKeeping:
 
                 angles[repeat] = self.angle_calculation(left, right)
 
-            print(angles)
-            self.angle = np.average(angles, weights=[2, 1])
-            print(self.angle)
+            self.angle = np.average(angles, weights=[1, 0])
+            # print(self.angle)
             print()
             self.fix_angle()
 
-            return self.angle, edged, thresholded
+            return self.angle, edged
         except Exception as e:
             print(e)
+            traceback.print_exc()

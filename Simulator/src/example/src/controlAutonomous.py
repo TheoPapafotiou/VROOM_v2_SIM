@@ -115,44 +115,28 @@ class AutonomousControlProcess():
                 self.perception_dict['Yaw'] = yaw 
                 self.perception_dict['Camera'] = self.color_cam.cv_image
                 self.perception_dict['Speed'] = self.speed
-               
-                ### ROUNDABOUT
-                diff = abs(abs(yaw) - abs(yaw_init))
-                if -margin < diff < margin and self.case == -1:
-                    self.case = 0
-                elif 20 - margin < diff < 20 + margin and self.case == 0:
-                    self.case = 1
-                elif -margin < diff < margin and self.case == 1:
-                    self.case = 2
-
-                lane_frame = self.mask_frame(self.color_cam.cv_image, case=0)
                 
-                wT, hT1, hT2 =  0.1 * self.width, 0.6 * self.height, 0.5 * self.height
-                wB, hB1, hB2 = 0.0 * self.width, 0.8 * self.height, 0.6 * self.height
-        
-                src_points = {
-                    '0' : np.float32([[wT, hT1], [self.width - wT, hT1], [wB, hB1], [self.width - wB, hB1]]),
-                    '1' : np.float32([[wT, hT2], [self.width - wT, hT2], [wB, hB2], [self.width - wB, hB2]])
-                }
-
-                # self.lane_frame = self.color_cam.cv_image
-                self.angle, lk_frame1, lk_frame2 = self.Lanekeep.lane_keeping_pipeline(lane_frame)
+                # ### ROUNDABOUT
+                # diff = abs(abs(yaw) - abs(yaw_init))
+                # if -margin < diff < margin and self.case == -1:
+                #     self.case = 0
+                # elif 20 - margin < diff < 20 + margin and self.case == 0:
+                #     self.case = 1
+                # elif -margin < diff < margin and self.case == 1:
+                #     self.case = 2
                 
-                warp = self.warp_image(lane_frame, src_points['0'])
-                cv2.imwrite('frames/warp_'+str(counter)+'.jpg', warp)
-
-                # cv2.imwrite('Upper_cam_20_03.jpg', self.lane_frame)
-                show_frame = np.concatenate([lane_frame, warp], axis=1)
+                lane_frame = self.color_cam.cv_image
+                self.angle, lk_frame1 = self.Lanekeep.lane_keeping_pipeline(lane_frame, self.case)
+                # show_frame = np.concatenate([lane_frame, cv2.cvtColor(lk_frame2, cv2.COLOR_GRAY2RGB)], axis=1)
                 
                 counter += 1
-                cv2.imwrite('frames/Frame_'+str(counter)+'_'+str(yaw)+'.jpg', lane_frame)
-                cv2.imshow("Preview", show_frame) 
+                cv2.imshow("Preview", lk_frame1) 
                 cv2.waitKey(1)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
                 
-                time.sleep(0.1)
+                time.sleep(0.05)
 
             self.speed = 0.0
         
@@ -170,25 +154,6 @@ class AutonomousControlProcess():
         warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
 
         return warped_frame
-
-    def mask_frame(self, image, case):
-        if case == 1:
-            polygons = np.array([
-                [(0, 0), (0, int(self.height)), (int(self.width*0.7), int(self.height)), (int(self.width*0.7), 0)]
-                ])
-
-        elif case == 2:  
-            polygons = np.array([
-                [(0, 0), (0, int(self.height)), (self.width, int(self.height)), (int(self.width*0.6), 0)]
-                ])
-        elif case == 0:
-            return image
-
-        mask = np.zeros_like(image)
-        cv2.fillPoly(mask, np.int32([polygons]), 255)
-        masked = cv2.bitwise_and(image, mask)
-
-        return masked
                  
     # ===================================== SEND COMMAND =================================
     def _command_speed(self):
