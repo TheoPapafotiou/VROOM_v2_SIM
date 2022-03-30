@@ -100,13 +100,14 @@ class AutonomousControlProcess():
 
     def _round_nav(self):
 
-        self.round.roundabout_procedure()
+        self.round.roundabout_procedure(type='S')
         self.roundabout_running = False
         print('Roundabout finished!')
 
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
         
+        self.speed = 0
         time.sleep(4)
         print('START!')
         self.speed = 0
@@ -156,7 +157,7 @@ class AutonomousControlProcess():
                 # show_frame = np.concatenate([lane_frame, cv2.cvtColor(lk_frame2, cv2.COLOR_GRAY2RGB)], axis=1)
                 
                 counter += 1
-                cv2.imshow("Preview", lane_frame) 
+                cv2.imshow("Preview", lk_frame1)
                 cv2.waitKey(1)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
