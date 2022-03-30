@@ -71,30 +71,6 @@ class LaneKeeping:
         self.setBestLeft = self.width/2 - margin_x
 
         self.case = -1
-
-    def mask_frame(self, image, case):
-        if case == 1:
-            polygons = np.array([
-                [(0, 0), (0, int(self.height)), (int(self.width*0.7), int(self.height)), (int(self.width*0.7), 0)]
-                ])
-            return image
-        elif case == 2:  
-            polygons = np.array([
-                [(0, 0), (0, int(self.height)), (self.width, int(self.height)), (int(self.width*0.6), 0)]
-                ])
-            return image
-        elif case == 0:
-            return image
-        else:
-            return image
-
-        # mask = np.zeros_like(image)
-        # cv2.fillPoly(mask, np.int32([polygons]), 255)
-        # masked = cv2.bitwise_and(image, mask)
-        # masked = np.zeros_like(image)
-        # masked[0:int(self.width*0.7), 0:int(self.height), :] = image[0:int(self.width*0.7), 0:int(self.height), :]
-
-        return masked
         
     def warp_image(self, frame, src_points):
 
@@ -105,10 +81,7 @@ class LaneKeeping:
         self.warp_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
         warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
 
-        masked = warped_frame#self.mask_frame(warped_frame, self.case)
-        # masked = cv2.cvtColor(masked, cv2.COLOR_BGR2RGB)
-
-        return masked
+        return warped_frame
 
     def make_lanes(self, lines, frame):
         out = np.dstack((frame, frame, frame)) * 255
@@ -259,8 +232,6 @@ class LaneKeeping:
         left_fit, right_fit = None, None
 
         # Fit a 2nd order polynomial for each lane line pixels
-        print('LenLeft: ', len(leftx))
-        print('LenRight: ', len(rightx))
         if len(leftx) >= self.min_lane_pts:  # and histogram[leftx_base] != 0:
             left_fit = np.polyfit(lefty, leftx, 2)
 
@@ -362,16 +333,6 @@ class LaneKeeping:
 
             return edged, None
 
-    def masked_region(self, image):  
-        polygons = np.array([
-             [(self.width, self.height * 4 / 5),(self.width * 5 / 6, self.height * 3 / 5), (self.width / 6, self.height * 3 / 5), 
-             (0, self.height * 4 / 5)]
-        ])
-        mask = np.zeros_like(image)
-        cv2.fillPoly(mask, np.int32([polygons]), 255)
-        MaskedImage = cv2.bitwise_and(image, mask)
-        return MaskedImage
-
     def lane_detection(self, edged, thresholded):
         lines = cv2.HoughLinesP(edged, self.rho, self.phi, self.threshold,
                                 np.array([]), minLineLength=8, maxLineGap=4)
@@ -386,67 +347,29 @@ class LaneKeeping:
 
     def angle_calculation(self, left, right):
 
-        if self.version == 1:
-            if left is not None and right is not None:
-                # print("BOTH LANES")
+        if left is not None and right is not None:
+            # print("BOTH LANES")
 
-                left_x, left_y, right_x, right_y = self.get_poly_points(left, right, polynomial=2)
+            left_x, left_y, right_x, right_y = self.get_poly_points(left, right, polynomial=2)
 
-                error = self.get_error(left_x, right_x)
-                angle = 90 - math.degrees(math.atan2(self.height, error))
+            error = self.get_error(left_x, right_x)
+            angle = 90 - math.degrees(math.atan2(self.height, error))
 
-            elif right is None and left is not None:
-                # print("LEFT LANE")
+        elif right is None and left is not None:
+            # print("LEFT LANE")
 
-                error = self.get_error(left, None)
-                angle = 90 - math.degrees(math.atan2(self.height, error))
+            error = self.get_error(left, None)
+            angle = 90 - math.degrees(math.atan2(self.height, error))
 
-            elif left is None and right is not None:
-                # print("RIGHT LANE")
+        elif left is None and right is not None:
+            # print("RIGHT LANE")
 
-                error = self.get_error(None, right)
-                angle = 90 - math.degrees(math.atan2(self.height, error))
+            error = self.get_error(None, right)
+            angle = 90 - math.degrees(math.atan2(self.height, error))
 
-            else:
-                angle = self.angle
-                print("No lanes found")
-
-        elif self.version == 2:
-            if np.count_nonzero(left) != 0 and np.count_nonzero(right) != 0:
-                # print("BOTH LANES")
-
-                left_x, left_y, right_x, right_y = self.get_poly_points(left, right, polynomial=1)
-                error, setpoint = self.get_error(left_x, right_x)
-                
-                angle = 90 - math.degrees(math.atan2(self.height, error))
-
-            elif np.count_nonzero(left) != 0 and np.count_nonzero(right) == 0:
-                # print("LEFT LANE")
-
-                a, b = left[0]
-                x1 = a * self.height + b
-                x2 = b
-
-                dx = x2 - x1
-                dy = self.height
-                
-                angle = - 45 + 90 - math.degrees(math.atan2(dy, dx))
-
-            elif np.count_nonzero(left) == 0 and np.count_nonzero(right) != 0:
-                # print("RIGHT LANE")
-
-                a, b = right[0]
-                x1 = a * self.height + b
-                x2 = b
-
-                dx = x2 - x1
-                dy = self.height
-                
-                angle = 45 + 90 - math.degrees(math.atan2(dy, dx))
-
-            else:
-                angle = self.angle
-                print("No lanes found, ", self.angle)
+        else:
+            angle = self.angle
+            print("No lanes found")
 
         return angle
 
@@ -475,15 +398,9 @@ class LaneKeeping:
         try:
             angles = [0 for i in range(2)]
             for repeat in range(1):
-                if self.version == 1:
-                    edged, thresholded = self.image_preprocessing(frame, self.src_points[str(repeat)], threshold=1, warp=1)
-                    left, right, edged = self.lane_detection(edged, thresholded)
 
-                elif self.version == 2:
-                    edged, thresholded = self.image_preprocessing(frame, threshold=0, warp=0)
-                    masked = self.masked_region(edged)
-                    left, right, edged = self.lane_detection(masked, None)
-
+                edged, thresholded = self.image_preprocessing(frame, self.src_points[str(repeat)], threshold=1, warp=1)
+                left, right, edged = self.lane_detection(edged, thresholded)
                 angles[repeat] = self.angle_calculation(left, right)
 
             self.angle = np.average(angles, weights=[1, 0])
