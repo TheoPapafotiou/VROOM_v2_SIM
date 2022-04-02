@@ -107,6 +107,9 @@ class AutonomousControlProcess():
             yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
             self.intersection.straight_yaw(yaw_init)
 
+        elif self.intersection_type == 'SL':
+            yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
+            self.intersection.small_left_turn(yaw_init, self.speed)
         print("Intersection finished!")
         self.intersection_running = False
 
@@ -127,7 +130,7 @@ class AutonomousControlProcess():
                 self.perception_dict['Speed'] = self.speed
                
                 if self.intersection_running is False and count==0:  
-                    self.intersection_type = "R"
+                    self.intersection_type = "SL"
                     self.intersectionThread.start()
                     self.intersection_running = True
                     self.start_yaw = self.perception_dict['Yaw']
@@ -142,7 +145,7 @@ class AutonomousControlProcess():
                 cv2.imshow("Preview", self.lane_frame) 
                 cv2.waitKey(1)
                 
-                if self.intersection.increase_angle is False and self.intersection.yaw_angle is False and self.intersection.decrease_angle is False:
+                if self.intersection.increase_angle is False and self.intersection.return_angle is False and self.intersection.yaw_angle is False and self.intersection.decrease_angle is False:
                     self.angle = self.Lanekeep.lane_keeping_pipeline(self.lane_frame) - self.intersection.yaw_diff/5
                 elif self.intersection.decrease_angle:
                     self.angle += self.intersection.angle_step
@@ -152,6 +155,9 @@ class AutonomousControlProcess():
                     self.angle = -self.intersection.yaw_diff
                     self.last_angle = self.angle
                     self.angle = (self.angle + self.last_angle)/2
+                elif self.intersection.return_angle:
+                    self.angle = self.intersection.get_angle()
+                    print('lllllllll')
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True

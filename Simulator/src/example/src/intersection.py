@@ -22,6 +22,7 @@ class Intersection:
         self.decrease_angle = False
         self.yaw_angle = False
         self.angle_step = 1
+        self.angle = 0.0
 
         # image processing parameters
         self.ThresholdHigh = 150
@@ -255,3 +256,40 @@ class Intersection:
             
             time.sleep(0.1)
             
+    def small_left_turn(self, yaw_init, speed):
+        
+        start = time.time()
+
+        self.return_angle = True
+
+        lane_keeping_threshold = 80
+
+        crossing_distance = 160 # (cm)
+
+        crossing_duration = crossing_distance/speed # (s)
+
+        time.sleep(1.5)
+
+        while self.finished is False:
+    
+            absolute_yaw_diff = np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw']))
+
+            if (absolute_yaw_diff < lane_keeping_threshold):
+                
+                self.angle -= 1
+                print('====== GRADUALLY INCREASING ANGLE ======')
+                print('angle: ', self.angle)
+
+            else :
+                print('========= GOING STRAIGHT ===============')
+                self.angle = 0
+
+            if time.time() - start > crossing_duration:
+
+                self.return_angle = False
+                self.finished = True
+
+            time.sleep(0.1)
+
+    def get_angle(self):
+        return self.angle
