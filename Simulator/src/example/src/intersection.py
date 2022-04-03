@@ -1,3 +1,36 @@
+###  This file is for Intersection navigation:
+#      There are 4 main functions for each case and type of path in an intersection
+#       for instance if you want to run the small right turn you can call the def : small_right_turn() 
+#       it takes two arguments that they are given inside the logicprocess.py, where the function is called
+#
+##  ENTER intersection mode:
+#   the check is done in the "logicprocess.py" and it is based on the flag-sign which represents the start of an intersection and in the horizontal line,
+#   which is a common characteristic in the begging of all the intersections.
+#   We have found a specific threshold distance and when the car is in this position then the intersection mode starts
+#
+##  EXIT intersection mode:
+#   We initialize the parameter: self.finished = False 
+#   The flags for exiting intersection mode are based on the crossing duration (in the straight) and in the yaw of the car (turns)
+#   Straight: if the car reaches a specific time threshold (time difference) then the self.finished = True 
+#   Turn: when the yaw of the car is a value among our max,min threshold values then the self.finished = True
+#   When the self.finished = True then the car continues the lane keeping mode
+#
+##  SMALL RIGHT TURN:
+#   The function firstly checks the yaw of the car in order to correct if it is necessary to succeed the task. Then, after it searchs for points in our region of interest
+#   with the aid of the function thresh_callback(), it draws an arc as a new lane to navigate the car by running lane keeping mode  
+#   To run the small right turn you have to go to the logicprocess.py file and change the parameter self.intersection_typ in order to execute the path you want 
+#   for instance if you want to turn small right then : self.intersection_type = "R" 
+#
+##  STRAIGHT:
+#   it is based on the yaw of the car with a check and correct mode. the angle is given trying to keep it equal to zero
+#   To run the directions are similar to the small right turn -> self.intersection_type = "S"   
+# 
+##  BIG LEFT TURN: 
+
+
+
+# TODO: A fix way to run the double lane road as a backup also in case something goes wrong with the other method and for the different types of turn or straight paths 
+
 import numpy as np
 import cv2 
 import time
