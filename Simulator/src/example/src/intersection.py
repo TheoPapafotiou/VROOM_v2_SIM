@@ -31,6 +31,7 @@
 
 # TODO: A fix way to run the double lane road as a backup also in case something goes wrong with the other method and for the different types of turn or straight paths 
 
+from audioop import cross
 import numpy as np
 import cv2 
 import time
@@ -326,3 +327,51 @@ class Intersection:
 
     def get_angle(self):
         return self.angle
+
+    def straight_double(self,yaw_init,speed):
+        start = time.time()
+
+        self.return_angle = True
+        
+        crossing_distance = 160
+
+        straight_distance = 60
+        
+        diagonal_distance = 45 # TODO: measure with evesion
+
+        crossing_duration = crossing_distance/speed
+
+        straight_duration = straight_distance/speed
+
+        diagonal_duration = diagonal_distance/speed
+        while self.finished is False:
+        
+            self.yaw_diff = yaw_init - self.get_perc()['Yaw']
+            print("YAW DIFF = ", self.yaw_diff)
+            print("YAW INIT = ", yaw_init)
+           
+            duration = time.time() - start
+            
+            if duration <= straight_duration:
+                self.angle = self.yaw_diff
+                self.angle = (self.angle + self.last_angle)/2
+                self.last_angle = self.angle
+            else:
+                start2 = time.time()
+                self.angle = -4 # TODO: test in simulation 
+                while time.time() - start2 < diagonal_duration:
+                    self.angle = -4
+                self.yaw_diff = yaw_init - self.get_perc()['Yaw']
+                self.angle = self.yaw_diff
+                self.angle = (self.angle + self.last_angle)/2
+                self.last_angle = self.angle
+            
+            if time.time()-  start > crossing_duration:
+                self.return_angle = False
+                self.finished
+            
+            time.sleep(0.1)
+
+
+
+        
