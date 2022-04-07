@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+from tokenize import Double
 import cv2
 import time
 import numpy as np
@@ -110,6 +111,10 @@ class AutonomousControlProcess():
         elif self.intersection_type == 'SL':
             yaw_init, _ = self.absolute_yaw_init(self.IMU.yaw)
             self.intersection.small_left_turn(yaw_init, self.speed)
+        elif self.intersection_type == 'SD':
+            yaw_init, init_diff = self.absolute_yaw_init(self.IMU.yaw)
+            self.intersection.straight_double(yaw_init,self.speed, init_diff)
+
         print("Intersection finished!")
         self.intersection_running = False
 
@@ -130,7 +135,7 @@ class AutonomousControlProcess():
                 self.perception_dict['Speed'] = self.speed
                
                 if self.intersection_running is False and count==0:  
-                    self.intersection_type = "SL"
+                    self.intersection_type = "SD"
                     self.intersectionThread.start()
                     self.intersection_running = True
                     self.start_yaw = self.perception_dict['Yaw']
@@ -155,6 +160,8 @@ class AutonomousControlProcess():
                     self.angle = -self.intersection.yaw_diff
                     self.last_angle = self.angle
                     self.angle = (self.angle + self.last_angle)/2
+                elif self.intersection.modify_angle:
+                    self.angle += self.intersection.angle_step
                 elif self.intersection.return_angle:
                     self.angle = self.intersection.get_angle()
                     print('lllllllll')

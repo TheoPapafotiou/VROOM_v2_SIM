@@ -57,6 +57,9 @@ class Intersection:
         self.yaw_angle = False
         self.angle_step = 1
         self.angle = 0.0
+        self.return_angle = False
+        self.last_angle = 0.0
+        self.modify_angle = False
 
         # image processing parameters
         self.ThresholdHigh = 150
@@ -219,19 +222,46 @@ class Intersection:
              
             time.sleep(0.1)
 
-    def straight_yaw(self, yaw_init):
-        start = time.time()
-        self.yaw_angle = True
+    # def straight_yaw(self, yaw_init):
 
-        while self.finished is False:
-            speed = self.get_perc()['Speed']
-            self.yaw_diff = np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])
-            end = time.time()
-            endFlag = 140/speed
+    #     start = time.time()
+        
+    #     self.yaw_angle = True
+
+    #     while self.finished is False:
+    #         speed = self.get_perc()['Speed']
+    #         self.yaw_diff = np.abs(yaw_init) - np.abs(self.get_perc()['Yaw'])
+    #         end = time.time()
+    #         endFlag = 140/speed
             
-            if end-start > endFlag:
-                self.yaw_angle = False
+    #         if end-start > endFlag:
+    #             self.yaw_angle = False
+    #             self.finished = True
+
+    def straight_yaw(self, yaw_init, speed):
+
+        start = time.time()
+
+        self.return_angle = True
+
+        crossing_distance = 140 # (cm)
+
+        crossing_duration = crossing_distance/speed # (s)
+        
+        while self.finished is False:
+            self.yaw_diff = yaw_init - self.get_perc()['Yaw']
+            print("YAW DIFF = ", self.yaw_diff)
+            print("YAW INIT = ", yaw_init)
+
+            self.angle = self.yaw_diff
+            self.angle = (self.angle + self.last_angle)/2
+            self.last_angle = self.angle
+            
+            if time.time() - start > crossing_duration:
+                self.return_angle = False
                 self.finished = True
+
+            time.sleep(0.1)
 
     def big_left_turn(self, yaw_init, init_diff):
         lane_keeping_threshold = 18
@@ -328,24 +358,28 @@ class Intersection:
     def get_angle(self):
         return self.angle
 
-    def straight_double(self,yaw_init,speed):
+    def straight_double(self,yaw_init,speed,init_diff):
         start = time.time()
 
         self.return_angle = True
         
         crossing_distance = 160
 
-        straight_distance = 60
+        straight_distance = 50
         
-        diagonal_distance = 45 # TODO: measure with evesion
+        diagonal_distance = 30 # TODO: measure with evesion
 
         crossing_duration = crossing_distance/speed
 
         straight_duration = straight_distance/speed
 
         diagonal_duration = diagonal_distance/speed
+
+        correction = True
+
         while self.finished is False:
-        
+            absolute_yaw_diff = np.abs(np.abs(yaw_init) - np.abs(self.get_perc()['Yaw']))
+
             self.yaw_diff = yaw_init - self.get_perc()['Yaw']
             print("YAW DIFF = ", self.yaw_diff)
             print("YAW INIT = ", yaw_init)
@@ -358,15 +392,26 @@ class Intersection:
                 self.last_angle = self.angle
             else:
                 start2 = time.time()
-                self.angle = -4 # TODO: test in simulation 
-                while time.time() - start2 < diagonal_duration:
-                    self.angle = -4
-                self.yaw_diff = yaw_init - self.get_perc()['Yaw']
-                self.angle = self.yaw_diff
-                self.angle = (self.angle + self.last_angle)/2
-                self.last_angle = self.angle
+                self.angle = -7 # TODO: test in simulation 
+                while time.time() - start2 < diagonal_duration or correction:
+                    self.angle = -7
+                    correction = False
+                if abs(absolute_yaw_diff) > 7.0 and correction is not True:
+                    print("*******Trying to fix my yaw*******")
+                    self.angle_step = -np.sign(init_diff) * abs(self.angle_step)
+                    print('angle step:',self.angle_step)
+                    self.modify_angle = True
+                elif abs(absolute_yaw_diff) < 7.0 and correction is not True:
+                    self.modify_angle = False
+                    self.angle = 0
+    
+                # print("START CORRECTION")
+                # self.yaw_diff = yaw_init - self.get_perc()['Yaw']
+                # self.angle = self.yaw_diff
+                # # self.angle = (self.angle + self.last_angle)/2
+                # # self.last_angle = self.angle
             
-            if time.time()-  start > crossing_duration:
+            if time.time() -  start > crossing_duration:
                 self.return_angle = False
                 self.finished
             
@@ -374,4 +419,4 @@ class Intersection:
 
 
 
-        
+## questions: in the straight we have not initiallize the last_angle how does it run? 
