@@ -24,7 +24,7 @@ class AutonomousControlProcess():
         """        
         self.speed = 0.0
         self.angle = 0.0 
-        self.last_angle = 0.0
+        self.max_angle = 22.0
         self.reset = False
 
         rospy.init_node('EXAMPLEnode', anonymous=False)     
@@ -50,8 +50,7 @@ class AutonomousControlProcess():
         # self.lane_frame = np.zeros((self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], 3))
         self.width = 640
         self.height = 480        
-        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
-        self.round = Roundabout(self._get_perception_results)
+        self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], self.max_angle) 
         self.roundabout_running = False
 
         #for intersection 
@@ -73,8 +72,6 @@ class AutonomousControlProcess():
 
         self.angleThread = Thread(name='AngleFunction', target=self._command_angle, daemon=True)
         self.angleThread.start()
-
-        self.roundThread = Thread(name='RoundaboutNavigation', target=self._round_nav, daemon=True)
 
         rospy.spin()
         print("Threads closed")
@@ -98,12 +95,6 @@ class AutonomousControlProcess():
 
         return self.perception_dict
 
-    def _round_nav(self):
-
-        self.round.roundabout_procedure(type='S')
-        self.roundabout_running = False
-        print('Roundabout finished!')
-
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
         
@@ -116,10 +107,6 @@ class AutonomousControlProcess():
         counter = 0
         yaw_init = 0
         self.case = -1
-
-        roundabout_detected = True
-        roundabout_timer = time.time()
-        #instead of Horizontal line for now
 
         try:
             while self.reset is False:
@@ -135,25 +122,9 @@ class AutonomousControlProcess():
                     'Distance' : float('inf')
                 } 
                 self.perception_dict['LKangle'], lk_frame1 = self.Lanekeep.lane_keeping_pipeline(lane_frame)
-                
-                ### ROUNDABOUT
+        
+                self.angle = self.perception_dict['LKangle']
 
-                if roundabout_detected == True and time.time() - roundabout_timer > 2:
-                    
-                    self.perception_dict['HorLine']['Distance'] = 300
-                    self.roundThread.start()
-                    roundabout_detected = False
-                    self.roundabout_running = True
-
-                if self.roundabout_running:
-                    self.angle = self.round.get_angle()
-                else:
-                    self.angle = self.perception_dict['LKangle']
-
-                    if self.round.finished:
-                        print("Time to die [Roundabout]")
-                        self.roundThread.join()
-                        self.round.finished = False
                 # show_frame = np.concatenate([lane_frame, cv2.cvtColor(lk_frame2, cv2.COLOR_GRAY2RGB)], axis=1)
                 
                 counter += 1
@@ -170,18 +141,6 @@ class AutonomousControlProcess():
         except Exception as e:
             print(e)
             traceback.print_exc()
-
-
-    def warp_image(self, frame, src_points):
-
-        # Destination points for warping
-        dst_points = np.float32([[0, 0], [self.width, 0], [0, self.height], [self.width, self.height]])
-        
-        # Warp frame
-        self.warp_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-        warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
-
-        return warped_frame
                  
     # ===================================== SEND COMMAND =================================
     def _command_speed(self):
