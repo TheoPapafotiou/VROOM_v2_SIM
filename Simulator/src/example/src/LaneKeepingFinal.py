@@ -43,10 +43,9 @@ class LaneKeeping:
         self.adaptiveC = -20
 
         # Lanes parameters
-        self.left_factor = 0.5
-        self.right_factor = 1 - self.left_factor
+        self.mid_factor = 0.5
         self.windows_number = 12                                            # Number of sliding windows (to scan the whole image)
-        self.window_width = 40                                              # Width of the windows (maybe dynamic??)
+        self.window_width = 80                                              # Width of the windows (maybe dynamic??)
         self.window_height = int(self.height / float(self.windows_number))  # Window Height
         self.minpix = 10                                                    # Min number of pixels needed to recenter the window
         self.min_lane_pts = 1000                                             # Min number of eligible pixels needed to encountered as a lane line
@@ -119,24 +118,24 @@ class LaneKeeping:
         nonzeroy = np.array(nonzero[0])
 
         ## === Set areas of interest ===
-        # midpoint = np.int(self.width / 2.0)
+        midpoint = int(self.width * self.mid_factor)
 
-        left_mid = int(self.width * self.left_factor)
-        hist_left = histogram[:left_mid]
-        
-        right_mid = int(self.width * self.right_factor)
-        hist_right_pre = histogram[self.width-right_mid:]
+        hist_left = histogram[:midpoint]
+
+        hist_right_pre = histogram[midpoint:]
         hist_right = hist_right_pre[::-1]
-        
+
+        if not np.any(hist_left):
+            return None, None, out
+        if not np.any(hist_right):
+            return None, None, out
 
         ## === Detect maximum value of each area ===
         max_left = np.argmax(hist_left)
         max_right = np.argmax(hist_right)
-
-        print(len(histogram), left_mid, '=', len(hist_left), right_mid, '=', len(hist_right))
         
         leftx_base = max_left
-        rightx_base = len(hist_right) - max_right - 1 + right_mid
+        rightx_base = midpoint + len(hist_right) - max_right - 1
 
         # Current position, updated for each window
         leftx_current = leftx_base
@@ -169,6 +168,8 @@ class LaneKeeping:
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy <= win_y_high)
                                 & (nonzerox >= win_xright_low) & (nonzerox <= win_xright_high)).nonzero()[0]
             right_lane_inds.append(good_right_inds)
+
+            print(len(good_left_inds), len(good_right_inds))
             
             if len(good_left_inds) > self.minpix:
                 leftx_current = int(np.mean(nonzerox[good_left_inds]))
@@ -200,6 +201,7 @@ class LaneKeeping:
         ## === Fit a 2nd order polynomial for each lane line pixels ===
         left_fit, right_fit = None, None
 
+        print(len(leftx), len(rightx))
         if len(leftx) >= self.min_lane_pts:  # and histogram[leftx_base] != 0:
             left_fit = np.polyfit(lefty, leftx, 2)
 
@@ -364,28 +366,27 @@ class LaneKeeping:
         try:
             angles = [0 for i in range(2)]
             errors = [0 for i in range(2)]
+
+            self.mid_factor = 0.5
             for repeat in range(2):
 
                 gray, edged_pre, thresholded = self.image_preprocessing(frame, self.src_points[str(repeat)])
                 left, right, edged = self.lane_detection(edged_pre, thresholded)
                 angles[repeat], errors[repeat] = self.angle_calculation(left, right)
-                if angles[repeat] >= 10:
-                    self.left_factor = min(self.angle/self.max_angle, 0.9)
-                    self.right_factor = 1 - self.left_factor
-                elif angles[repeat] <= -10:
-                    self.right_factor = min(self.angle/self.max_angle, 0.9)
-                    self.left_factor = 1 - self.right_factor
+                if angles[repeat] >= self.max_angle*0.5:
+                    self.mid_factor = min(self.angle/(1*self.max_angle), 0.7)
+                elif angles[repeat] <= -self.max_angle*0.5:
+                    self.mid_factor = 1 - min(self.angle/(1*self.max_angle), 0.7)
                 else:
-                    self.left_factor = 0.5
-                    self.right_factor = 1 - self.left_factor
+                    self.mid_factor = 0.5
 
             self.angle = np.average(angles, weights=[0, 2])
             
             # print(self.angle)
             self.fix_angle()
 
-            output_image = edged
-            cv2.line(output_image, (int(self.left_factor * self.width), 0), (int(self.left_factor * self.width), self.height), color=(255, 255, 255), thickness=2)
+            output_image = edged_pre
+            cv2.line(output_image, (int(self.mid_factor * self.width), 0), (int(self.mid_factor * self.width), self.height), color=(255, 255, 255), thickness=2)
             cv2.line(output_image, (int(self.setBestLeft), 0), (int(self.setBestLeft), self.height), color=(255, 100, 100), thickness=2)
             cv2.line(output_image, (int(self.setBestRight), 0), (int(self.setBestRight), self.height), color=(100, 100, 255), thickness=2)
             cv2.circle(output_image, (int(errors[1]), self.height//2), radius=5, color=(0, 255, 0), thickness=-1)
