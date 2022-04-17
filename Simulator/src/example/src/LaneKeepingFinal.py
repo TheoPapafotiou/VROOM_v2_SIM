@@ -16,8 +16,8 @@ class LaneKeeping:
         self.width = width
         self.height = height
         self.max_angle = max_angle
-        wT, hT1, hT2 =  0.1 * self.width, 0.7 * self.height, 0.7 * self.height
-        wB, hB1, hB2 = 0.0 * self.width, 0.9 * self.height, 0.9 * self.height
+        wT, hT1, hT2 =  0.1 * self.width, 0.7 * self.height, 0.6 * self.height
+        wB, hB1, hB2 = 0.0 * self.width, 0.9 * self.height, 0.8 * self.height
         self.src_points = {
             '0' : np.float32([[wT, hT1], [width - wT, hT1], [wB, hB1], [width - wB, hB1]]),
             '1' : np.float32([[wT, hT2], [width - wT, hT2], [wB, hB2], [width - wB, hB2]])
@@ -38,6 +38,17 @@ class LaneKeeping:
         self.cannyHigh = 200
         self.cannyLow = 100
 
+        #HoughLines parameters 
+        self.rho = 1  # distance precision in pixel, i.e. 1 pixel
+        self.phi = np.pi / 180  # angular precision in radian, i.e. 1 degree
+        self.threshold = 60  # minimal of votes
+
+        # Lanes Slope limits 
+        self.YLimit = 4
+        self.XLimit = 4
+        self.MidBoundary = self.width * 0.5
+        self.lines_threshold = 5
+
         # Adaptive Threshold parameters
         self.adaptiveBlockSize = 39 # odd number!
         self.adaptiveC = -20
@@ -45,7 +56,7 @@ class LaneKeeping:
         # Lanes parameters
         self.mid_factor = 0.5
         self.windows_number = 12                                            # Number of sliding windows (to scan the whole image)
-        self.window_width = 80                                              # Width of the windows (maybe dynamic??)
+        self.window_width = 40                                              # Width of the windows (maybe dynamic??)
         self.window_height = int(self.height / float(self.windows_number))  # Window Height
         self.minpix = 10                                                    # Min number of pixels needed to recenter the window
         self.min_lane_pts = 1000                                             # Min number of eligible pixels needed to encountered as a lane line
@@ -78,6 +89,87 @@ class LaneKeeping:
         warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
 
         return warped_frame
+
+    def calculate_slope(self, lines, frame):
+        out = np.dstack((frame, frame, frame)) * 255
+        LeftFit = []
+        RightFit = []
+        xl = []
+        yl = []
+        xr = []
+        yr = []
+        xm = []
+        ym = []
+
+        if lines is None:
+            return None, None, None
+
+        total_lines = len(lines) 
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            if (np.abs(y2 - y1) < self.YLimit) or (np.abs(x2 - x1 < self.XLimit)):
+                continue
+            elif (x1 < self.MidBoundary and x2 < self.MidBoundary):
+                xl.append(x1)
+                yl.append(y1)
+                xl.append(x2)
+                yl.append(y2)
+                pts = np.array([[x1, y1], [x2, y2]], np.int32)
+                cv2.polylines(out, [pts], True, (0, 255, 0), 4)
+
+            elif (x1 > self.MidBoundary and x2 > self.MidBoundary):
+                xr.append(x2)
+                yr.append(y2)
+                xr.append(x1)
+                yr.append(y1)
+                pts = np.array([[x1, y1], [x2, y2]], np.int32)
+                cv2.polylines(out, [pts], True, (255, 0, 0), 4)
+
+            else:
+                xm.append(x2)
+                ym.append(y2)
+                xm.append(x1)
+                ym.append(y1)
+                pts = np.array([[x1, y1], [x2, y2]], np.int32)
+                cv2.polylines(out, [pts], True, (255, 0, 255), 4)
+
+        yr = np.array(yr)
+        xr = np.array(xr)
+        yl = np.array(yl)
+        xl = np.array(xl)
+        ym = np.array(ym)
+        xm = np.array(xm)
+
+        cv2.imshow('Slope_img', out)
+
+        if len(xm) > total_lines / 3:
+            xl = []
+            yl = []
+            xr = []
+            xl = []
+
+        SlopeL = None
+        SlopeR = None
+        SlopeM = None
+        if (np.count_nonzero(xl) != 0) and (np.count_nonzero(yl) != 0):  
+            SlopeL, MiddleL = np.polyfit(yl, xl, 1)
+            LeftFit.append((SlopeL, MiddleL))
+        if (np.count_nonzero(xr) != 0) and (np.count_nonzero(yr) != 0):
+            SlopeR, MiddleR = np.polyfit(yr, xr, 1)
+            RightFit.append((SlopeR, MiddleR))
+        if (np.count_nonzero(xm) != 0) and (np.count_nonzero(ym) != 0):
+            SlopeM, MiddleM = np.polyfit(ym, xm, 1)
+            RightFit.append((SlopeM, MiddleM))
+
+        return SlopeL, SlopeR, SlopeM
+
+    def extract_factors(self, slopeL, slopeR, slopeM):
+        if slopeM is not None and slopeM >= 0.6:
+            self.mid_factor = 0.3
+        elif slopeM is not None and slopeM <= -0.5:
+            self.mid_factor = 1 - 0.3
+        else:
+            self.mid_factor = 0.5
 
     def polyfit_sliding_window(self, frame):
         """Performs the lane detection on the given frame
@@ -125,9 +217,8 @@ class LaneKeeping:
         hist_right_pre = histogram[midpoint:]
         hist_right = hist_right_pre[::-1]
 
-        if not np.any(hist_left):
-            return None, None, out
-        if not np.any(hist_right):
+        if not np.any(hist_left) and not np.any(hist_right):
+            print('Empty left and right hist')
             return None, None, out
 
         ## === Detect maximum value of each area ===
@@ -168,8 +259,6 @@ class LaneKeeping:
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy <= win_y_high)
                                 & (nonzerox >= win_xright_low) & (nonzerox <= win_xright_high)).nonzero()[0]
             right_lane_inds.append(good_right_inds)
-
-            print(len(good_left_inds), len(good_right_inds))
             
             if len(good_left_inds) > self.minpix:
                 leftx_current = int(np.mean(nonzerox[good_left_inds]))
@@ -201,7 +290,6 @@ class LaneKeeping:
         ## === Fit a 2nd order polynomial for each lane line pixels ===
         left_fit, right_fit = None, None
 
-        print(len(leftx), len(rightx))
         if len(leftx) >= self.min_lane_pts:  # and histogram[leftx_base] != 0:
             left_fit = np.polyfit(lefty, leftx, 2)
 
@@ -287,16 +375,6 @@ class LaneKeeping:
 
         return mean
 
-    def plot_points(self, left_x, left_y, right_x, right_y, frame):
-
-        out = frame * 0
-
-        for i in range(len(left_x)):
-            cv2.circle(out, (left_x[i], left_y[i]), 10, color=(255, 255, 255), thickness=-1)
-            cv2.circle(out, (right_x[i], right_y[i]), 10, color=(255, 255, 255), thickness=-1)
-
-        return out
-
     def image_preprocessing(self, frame, src_points):
         
         frame = self.warp_image(frame, src_points)
@@ -307,7 +385,7 @@ class LaneKeeping:
 
         return gray, edged, thresholded
 
-    def lane_detection(self, edged, thresholded):
+    def lane_detection(self, thresholded):
     
         left, right, out = self.polyfit_sliding_window(thresholded)
         return left, right, out
@@ -368,24 +446,29 @@ class LaneKeeping:
             errors = [0 for i in range(2)]
 
             self.mid_factor = 0.5
+
+            start = time.time()
             for repeat in range(2):
 
                 gray, edged_pre, thresholded = self.image_preprocessing(frame, self.src_points[str(repeat)])
-                left, right, edged = self.lane_detection(edged_pre, thresholded)
-                angles[repeat], errors[repeat] = self.angle_calculation(left, right)
-                if angles[repeat] >= self.max_angle*0.5:
-                    self.mid_factor = min(self.angle/(1*self.max_angle), 0.7)
-                elif angles[repeat] <= -self.max_angle*0.5:
-                    self.mid_factor = 1 - min(self.angle/(1*self.max_angle), 0.7)
-                else:
-                    self.mid_factor = 0.5
 
-            self.angle = np.average(angles, weights=[0, 2])
+                ## === Calculate approximate slope ===
+                lines = cv2.HoughLinesP(edged_pre, self.rho, self.phi, self.threshold,
+                                np.array([]), minLineLength=8, maxLineGap=4)
+
+                left_slope, right_slope, medium_slope = self.calculate_slope(lines, edged_pre)
+                self.extract_factors(left_slope, right_slope, medium_slope)
+
+                ## === Angle calculation ===
+                left, right, out = self.lane_detection(thresholded)#(edged_pre)#
+                angles[repeat], errors[repeat] = self.angle_calculation(left, right)
+
+            self.angle = np.average(angles, weights=[3, 1])
             
             # print(self.angle)
             self.fix_angle()
 
-            output_image = edged_pre
+            output_image = out
             cv2.line(output_image, (int(self.mid_factor * self.width), 0), (int(self.mid_factor * self.width), self.height), color=(255, 255, 255), thickness=2)
             cv2.line(output_image, (int(self.setBestLeft), 0), (int(self.setBestLeft), self.height), color=(255, 100, 100), thickness=2)
             cv2.line(output_image, (int(self.setBestRight), 0), (int(self.setBestRight), self.height), color=(100, 100, 255), thickness=2)
