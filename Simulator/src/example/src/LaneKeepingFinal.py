@@ -369,7 +369,7 @@ class LaneKeeping:
 
         else:
             angle = self.angle
-            print("No lanes found")
+            # print("No lanes found")
 
         return angle
 

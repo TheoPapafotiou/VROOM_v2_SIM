@@ -5,6 +5,7 @@ import traceback
 import cv2
 import time
 import numpy as np
+import math
 
 from ranging_sensors    import RangeHandler
 from std_msgs.msg       import String
@@ -51,15 +52,12 @@ class AutonomousControlProcess():
         self.width = 640
         self.height = 480        
         self.Lanekeep = LaneKeeping(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0], version=1) 
-        self.round = Roundabout(self._get_perception_results)
-        self.roundabout_running = False
 
         #for intersection 
         self.yaw_init = 0.0
         self.intersection_type = "None"
         self.intersection_running = False
         self.perception_dict = {}
-        # self.intersection= Intersection(self.color_cam.cv_image.shape[1], self.color_cam.cv_image.shape[0],self._get_perception_results)
 
     # ===================================== RUN ==========================================
     def run(self):
@@ -73,8 +71,6 @@ class AutonomousControlProcess():
 
         self.angleThread = Thread(name='AngleFunction', target=self._command_angle, daemon=True)
         self.angleThread.start()
-
-        self.roundThread = Thread(name='RoundaboutNavigation', target=self._round_nav, daemon=True)
 
         rospy.spin()
         print("Threads closed")
@@ -98,72 +94,55 @@ class AutonomousControlProcess():
 
         return self.perception_dict
 
-    def _round_nav(self):
-
-        self.round.roundabout_procedure(type='S')
-        self.roundabout_running = False
-        print('Roundabout finished!')
-
     # ===================================== TEST FUNCTION ====================================
     def _test_function(self):
         
         self.speed = 0
+        lane_frame = self.color_cam.cv_image
         time.sleep(4)
         print('START!')
-        self.speed = 0
         self.angle = 0
         self.speed = 10
-        counter = 0
-        yaw_init = 0
-        self.case = -1
-
-        roundabout_detected = True
-        roundabout_timer = time.time()
         #instead of Horizontal line for now
+
+        dt = 0.5
+        counter = 0
 
         try:
             while self.reset is False:
                 
+                loop_time = time.time()
                 yaw = round(self.IMU.yaw, 2)
 
                 lane_frame = self.color_cam.cv_image
 
                 self.perception_dict['Yaw'] = yaw 
-                self.perception_dict['Camera'] = self.color_cam.cv_image
+                self.perception_dict['Camera'] = lane_frame
                 self.perception_dict['Speed'] = self.speed
                 self.perception_dict['HorLine'] = {
                     'Distance' : float('inf')
                 } 
                 self.perception_dict['LKangle'], lk_frame1 = self.Lanekeep.lane_keeping_pipeline(lane_frame)
 
-                ### ROUNDABOUT
-
-                if roundabout_detected == True and time.time() - roundabout_timer > 2:
-                    
-                    self.perception_dict['HorLine']['Distance'] = 300
-                    self.roundThread.start()
-                    roundabout_detected = False
-                    self.roundabout_running = True
-
-                if self.roundabout_running:
-                    self.angle = self.round.get_angle()
-                else:
-                    self.angle = self.perception_dict['LKangle']
-
-                    if self.round.finished:
-                        print("Time to die [Roundabout]")
-                        self.roundThread.join()
-                        self.round.finished = False
+                self.angle = self.perception_dict['LKangle']
                 # show_frame = np.concatenate([lane_frame, cv2.cvtColor(lk_frame2, cv2.COLOR_GRAY2RGB)], axis=1)
+
+                if counter == 0:
+                    x, y = self.calculate_position(self.GPS.pos[0], self.GPS.pos[1], yaw, self.speed, dt)
+                else:
+                    x, y = self.calculate_position(x, y, yaw, self.speed, dt)
+
+                print(yaw)
+                print(x, y, " VS ", self.GPS.pos[0], self.GPS.pos[1], " (init)")
                 
-                counter += 1
                 cv2.imshow("Preview", lk_frame1)
                 cv2.waitKey(1)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.reset = True
                 
-                time.sleep(0.05)
+                counter += 1
+                time.sleep(dt - (time.time() - loop_time))
 
             self.speed = 0.0
         
@@ -171,17 +150,16 @@ class AutonomousControlProcess():
             print(e)
             traceback.print_exc()
 
-
-    def warp_image(self, frame, src_points):
-
-        # Destination points for warping
-        dst_points = np.float32([[0, 0], [self.width, 0], [0, self.height], [self.width, self.height]])
+    def calculate_position(self, x, y, yaw, speed, dt):
         
-        # Warp frame
-        self.warp_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-        warped_frame = cv2.warpPerspective(frame, self.warp_matrix, (self.width, self.height))
+        yaw = math.radians(yaw)
 
-        return warped_frame
+        ux = speed*math.cos(yaw)
+        uy = speed*math.sin(yaw)
+
+        x = x + ux*dt        
+        y = y - uy*dt
+        return x, y
                  
     # ===================================== SEND COMMAND =================================
     def _command_speed(self):
