@@ -284,8 +284,8 @@ class LaneKeeping:
             diff = (x1+x2)/2 - self.setBestRight
             error = x2 - x1 + diff
 
-            print('Before Right: ', 90 - math.degrees(math.atan2(self.height, error_init)))
-            print('After Right: ', 90 - math.degrees(math.atan2(self.height, error)), 'Diff: ', diff)
+            # print('Before Right: ', 90 - math.degrees(math.atan2(self.height, error_init)))
+            # print('After Right: ', 90 - math.degrees(math.atan2(self.height, error)), 'Diff: ', diff)
 
         elif right_x is None:
             x1 = left_x[0] * self.height ** 2 + left_x[1] * self.height + left_x[2]
@@ -295,8 +295,8 @@ class LaneKeeping:
             diff = (x1+x2)/2 - self.setBestLeft
             error = x2 - x1 + diff
             
-            print('Before Left: ', 90 - math.degrees(math.atan2(self.height, error_init)))
-            print('After Left: ', 90 - math.degrees(math.atan2(self.height, error)), 'Diff: ', diff)
+            # print('Before Left: ', 90 - math.degrees(math.atan2(self.height, error_init)))
+            # print('After Left: ', 90 - math.degrees(math.atan2(self.height, error)), 'Diff: ', diff)
 
         return error
 
@@ -405,7 +405,7 @@ class LaneKeeping:
 
             self.angle = np.average(angles, weights=[1, 0])
             # print(self.angle)
-            print()
+            # print()
             self.fix_angle()
 
             return self.angle, edged

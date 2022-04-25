@@ -124,7 +124,7 @@ class AutonomousControlProcess():
         try:
             while self.reset is False:
                 
-                yaw = round(self.IMU.yaw)
+                yaw = round(self.IMU.yaw, 2)
 
                 lane_frame = self.color_cam.cv_image
 
@@ -135,7 +135,7 @@ class AutonomousControlProcess():
                     'Distance' : float('inf')
                 } 
                 self.perception_dict['LKangle'], lk_frame1 = self.Lanekeep.lane_keeping_pipeline(lane_frame)
-                
+
                 ### ROUNDABOUT
 
                 if roundabout_detected == True and time.time() - roundabout_timer > 2:
