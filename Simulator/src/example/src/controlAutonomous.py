@@ -100,7 +100,7 @@ class AutonomousControlProcess():
 
     def _round_nav(self):
 
-        self.round.roundabout_procedure(type='S')
+        self.round.roundabout_procedure(type='L')
         self.roundabout_running = False
         print('Roundabout finished!')
 

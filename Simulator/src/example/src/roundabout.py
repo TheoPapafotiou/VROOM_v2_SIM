@@ -16,7 +16,7 @@ class Roundabout:
         self.up_angle_limit = 23
         self.lane_keeping_array = []
 
-        self.R = 1.4 # m
+        self.R = 1.6#1.4 # m
         self.dt = 0.1
 
         self.decrease_rate = 1.5
@@ -108,7 +108,7 @@ class Roundabout:
                     self.case = 2
                 elif 90 - self.yaw_margin < diff < 90 + self.yaw_margin and self.case == 2:
                     self.case = 3
-                elif 120 - self.yaw_margin < diff < 120 + self.yaw_margin and self.case == 3:
+                elif 125 - self.yaw_margin < diff < 125 + self.yaw_margin and self.case == 3:
                     self.case = 4
                 elif 90 - self.yaw_margin < diff < 90 + self.yaw_margin and self.case == 4:
                     self.case = 5
