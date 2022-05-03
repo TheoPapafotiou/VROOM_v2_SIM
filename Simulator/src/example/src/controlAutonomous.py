@@ -105,8 +105,9 @@ class AutonomousControlProcess():
         self.speed = 10
         #instead of Horizontal line for now
 
-        dt = 0.5
+        dt = 0.1
         counter = 0
+        last_time = time.time()
 
         try:
             while self.reset is False:
@@ -127,14 +128,19 @@ class AutonomousControlProcess():
                 self.angle = self.perception_dict['LKangle']
                 # show_frame = np.concatenate([lane_frame, cv2.cvtColor(lk_frame2, cv2.COLOR_GRAY2RGB)], axis=1)
 
-                if counter == 0:
-                    x, y = self.calculate_position(self.GPS.pos[0], self.GPS.pos[1], yaw, self.speed, dt)
+                if counter == 1:
+                    x, y = self.calculate_position(self.GPS.pos[0], self.GPS.pos[1], yaw, self.speed/100, time.time() - last_time)
+                elif counter > 1:
+                    x, y = self.calculate_position(x, y, yaw, self.speed/100, time.time() - last_time)
                 else:
-                    x, y = self.calculate_position(x, y, yaw, self.speed, dt)
+                    x = self.GPS.pos[0]
+                    y = self.GPS.pos[1]
+                last_time = time.time()
 
                 print(yaw)
                 print(x, y, " VS ", self.GPS.pos[0], self.GPS.pos[1], " (init)")
-                
+                last_time = time.time()
+
                 cv2.imshow("Preview", lk_frame1)
                 cv2.waitKey(1)
                 
@@ -142,7 +148,7 @@ class AutonomousControlProcess():
                     self.reset = True
                 
                 counter += 1
-                time.sleep(dt - (time.time() - loop_time))
+                time.sleep(dt)
 
             self.speed = 0.0
         
